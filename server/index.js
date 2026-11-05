@@ -67,7 +67,7 @@ const BUILTIN_AVATARS_DIR = path.join(BASE_DIR, 'public', 'img', 'avatars');
 // way. Used both for the startup banner and the JS/CSS cache-busting
 // query param below, so they can never drift out of sync with each
 // other.
-const BUILD_VERSION = 'io-0.2.0-community-2026-11-05-r2';
+const BUILD_VERSION = 'io-0.3.0-complete-2026-11-05';
 const CONFIG_PATH = path.join(DATA_DIR, 'config.json');
 const SESSION_COOKIE = 'io_session';
 const SESSION_MAX_AGE_SEC = 30 * 24 * 60 * 60; // 30 days
@@ -375,7 +375,7 @@ app.use((req, res, next) => {
   res.setHeader('Content-Type', types[path.extname(filePath).toLowerCase()] || 'application/octet-stream');
   res.setHeader('Content-Encoding', 'gzip');
   res.setHeader('Vary', 'Accept-Encoding');
-  res.setHeader('Cache-Control', 'public, max-age=3600'); // mirrors the static handler's 1h for JS/CSS
+  res.setHeader('Cache-Control', 'no-cache'); // Revalidate compressed app assets, too.
   res.end(entry.gz);
 });
 
@@ -426,10 +426,10 @@ function getAccountFromRequest(req) {
 }
 
 function setSessionCookie(res, token) {
-  res.setHeader('Set-Cookie', `${SESSION_COOKIE}=${token}; HttpOnly; Path=/; Max-Age=${SESSION_MAX_AGE_SEC}; SameSite=Lax${httpsActive ? '; Secure' : ''}`);
+  res.setHeader('Set-Cookie', `${SESSION_COOKIE}=${token}; HttpOnly; Path=/; Max-Age=${SESSION_MAX_AGE_SEC}; SameSite=Lax${(httpsActive || services.get().publicUrl.startsWith('https:')) ? '; Secure' : ''}`);
 }
 function clearSessionCookie(res) {
-  res.setHeader('Set-Cookie', `${SESSION_COOKIE}=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax${httpsActive ? '; Secure' : ''}`);
+  res.setHeader('Set-Cookie', `${SESSION_COOKIE}=; HttpOnly; Path=/; Max-Age=0; SameSite=Lax${(httpsActive || services.get().publicUrl.startsWith('https:')) ? '; Secure' : ''}`);
 }
 
 // Every account can browse/watch/read; only 'admin' accounts can manage
@@ -453,6 +453,9 @@ function requireAdmin(req, res) {
   return account;
 }
 
+const services = require('./services').createServices(DATA_DIR);
+require('./identity').registerIdentity(app, { db, accounts: accountsStore, services, requireAuth, setSessionCookie, getConfig: () => config });
+require('./live-tv').registerLive(app, { db, requireAuth, getLibrary: () => library, getStreamInfo });
 require('./episode-discussions')(app, { db, requireAuth, getShow: id => library.getShow(id) });
 
 // ================== AUTH ROUTES ==================
