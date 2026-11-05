@@ -12,7 +12,7 @@ function ioCommentHTML(comment, rootId) {
       <button data-reply="${escapeHtml(rootId)}">Reply</button>
       ${!own ? `<button data-report="${id}">Report</button>` : ''}
       ${canDelete ? `<button data-delete="${id}">Delete</button>` : ''}
-    </div>`}</article>`;
+    </div>${ioReactionHTML(comment)}`}</article>`;
 }
 
 function ioMountDiscussions(root, show, episode) {
@@ -74,7 +74,11 @@ function ioMountDiscussions(root, show, episode) {
     }
     button.disabled=true;status.textContent='';
     try {
-      if (button.dataset.like) {
+      if (button.dataset.reaction) {
+        const comment=comments.find(c=>c.id===button.dataset.reactionComment),emoji=button.dataset.reaction;
+        const active=!(comment.reactions||[]).find(r=>r.emoji===emoji)?.reacted;
+        Object.assign(comment,await send(endpoint+'/'+encodeURIComponent(comment.id)+'/reaction','PUT',{emoji,active}));paint();
+      } else if (button.dataset.like) {
         const comment=comments.find(c=>c.id===button.dataset.like);
         Object.assign(comment,await send(endpoint+'/'+encodeURIComponent(comment.id)+'/like','PUT',{liked:!comment.liked}));paint();
       } else if (button.dataset.delete) {
@@ -93,7 +97,13 @@ function ioMountDiscussions(root, show, episode) {
       }
     } catch(error) {status.textContent=error.message;} finally {button.disabled=false;}
   };
-  load().catch(error=>{if(status.isConnected)status.textContent=error.message;});
+  load().then(async()=>{
+    let focus;try{focus=JSON.parse(sessionStorage.getItem('ioDiscussionFocus')||'null');}catch{}
+    if(!focus||focus.showId!==show.id)return;try{sessionStorage.removeItem('ioDiscussionFocus');}catch{}
+    let target=allComments().find(c=>c.id===focus.commentId);
+    if(!target){try{const thread=await API._fetch(endpoint+'/'+encodeURIComponent(focus.commentId)+'/thread');if(!threads.some(t=>t.id===thread.id))threads.unshift({...thread,replyCursor:thread.replies.at(-1)?.id,repliesDone:thread.replyCount<=thread.replies.length});paint();target=thread;}catch{return;}}
+    const article=Array.from(list.querySelectorAll('[data-comment-id]')).find(el=>el.dataset.commentId===(target.id||focus.commentId));if(article){article.tabIndex=-1;article.scrollIntoView({block:'center'});article.focus({preventScroll:true});}
+  }).catch(error=>{if(status.isConnected)status.textContent=error.message;});
 }
 
 function ioReportDialog(root,endpoint,commentId,status) {

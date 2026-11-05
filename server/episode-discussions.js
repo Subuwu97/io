@@ -23,13 +23,15 @@ module.exports = function registerDiscussions(app, { db, requireAuth, getShow })
       UNIQUE(comment_id, reporter_id)
     ); CREATE INDEX IF NOT EXISTS discussion_report_queue ON discussion_reports(status, created_at, id);`);
 
+  const community = require('./community').createCommunity(db);
+  community.register(app, { requireAuth });
   const select = `SELECT d.id, d.account_id AS accountId, a.username, d.text, d.created_at AS createdAt,
     d.parent_id AS parentId, d.spoiler, d.deleted_at AS deletedAt,
     (SELECT COUNT(*) FROM discussion_likes l WHERE l.comment_id=d.id) AS likes,
     EXISTS(SELECT 1 FROM discussion_likes l WHERE l.comment_id=d.id AND l.account_id=?) AS liked,
     (SELECT COUNT(*) FROM episode_discussions r WHERE r.parent_id=d.id) AS replyCount
     FROM episode_discussions d JOIN accounts a ON a.id=d.account_id`;
-  const serialize = row => ({ ...row, spoiler:!!row.spoiler, liked:!!row.liked,
+  const serialize = (row, viewer) => ({ ...row, reactions:row.deletedAt?[]:community.getReactions(row.id,viewer), spoiler:!!row.spoiler, liked:!!row.liked,
     ...(row.deletedAt ? { text:'', username:'Deleted comment', accountId:null, likes:0, liked:false } : {}) });
   function context(req, res) {
     const account = requireAuth(req, res); if (!account) return null;
@@ -49,6 +51,7 @@ module.exports = function registerDiscussions(app, { db, requireAuth, getShow })
   function remove(id) {
     db.prepare("UPDATE episode_discussions SET text='', deleted_at=COALESCE(deleted_at,?) WHERE id=?").run(new Date().toISOString(), id);
     db.prepare('DELETE FROM discussion_likes WHERE comment_id=?').run(id);
+    db.prepare('DELETE FROM discussion_reactions WHERE comment_id=?').run(id);
   }
   function admin(req, res) {
     const account = requireAuth(req, res); if (!account) return null;
@@ -58,7 +61,7 @@ module.exports = function registerDiscussions(app, { db, requireAuth, getShow })
 
   app.get('/api/discussions/:showId', (req, res) => {
     const ctx = context(req, res); if (!ctx) return;
-    if (req.query.threads !== '1') return res.json(db.prepare(`${select} WHERE d.show_id=? AND d.episode_path=? ORDER BY d.created_at DESC,d.id DESC LIMIT 100`).all(ctx.account.id,req.params.showId,ctx.episode).map(serialize));
+    if (req.query.threads !== '1') return res.json(db.prepare(`${select} WHERE d.show_id=? AND d.episode_path=? ORDER BY d.created_at DESC,d.id DESC LIMIT 100`).all(ctx.account.id,req.params.showId,ctx.episode).map(row=>serialize(row,ctx.account.id)));
     const params = [ctx.account.id,req.params.showId,ctx.episode];
     let cursor = '';
     if (req.query.before) {
@@ -68,8 +71,8 @@ module.exports = function registerDiscussions(app, { db, requireAuth, getShow })
       cursor = ' AND (d.created_at < ? OR (d.created_at=? AND d.id < ?))'; params.push(before.created_at,before.created_at,before.id);
     }
     const rows = db.prepare(`${select} WHERE d.show_id=? AND d.episode_path=? AND d.parent_id IS NULL${cursor} ORDER BY d.created_at DESC,d.id DESC LIMIT 26`).all(...params);
-    const roots = rows.slice(0,25).map(serialize);
-    for (const root of roots) root.replies = db.prepare(`${select} WHERE d.parent_id=? ORDER BY d.created_at,d.id LIMIT 5`).all(ctx.account.id,root.id).map(serialize);
+    const roots = rows.slice(0,25).map(row=>serialize(row,ctx.account.id));
+    for (const root of roots) root.replies = db.prepare(`${select} WHERE d.parent_id=? ORDER BY d.created_at,d.id LIMIT 5`).all(ctx.account.id,root.id).map(row=>serialize(row,ctx.account.id));
     res.json({ threads:roots, nextCursor:rows.length > 25 ? roots.at(-1).id : null });
   });
   app.get('/api/discussions/:showId/:id/replies', (req, res) => {
@@ -82,7 +85,7 @@ module.exports = function registerDiscussions(app, { db, requireAuth, getShow })
       cursor=' AND (d.created_at > ? OR (d.created_at=? AND d.id > ?))';params.push(after.created_at,after.created_at,after.id);
     }
     const rows=db.prepare(`${select} WHERE d.parent_id=?${cursor} ORDER BY d.created_at,d.id LIMIT 51`).all(...params);
-    const replies=rows.slice(0,50).map(serialize);
+    const replies=rows.slice(0,50).map(row=>serialize(row,account.id));
     res.json({replies,nextCursor:rows.length > 50 ? replies.at(-1).id:null});
   });
   app.post('/api/discussions/:showId', (req, res) => {
@@ -100,7 +103,8 @@ module.exports = function registerDiscussions(app, { db, requireAuth, getShow })
     if (last && Date.now()-Date.parse(last.created_at) < 3000) return res.status(429).json({error:'Please wait a moment before posting again'});
     const id=randomUUID(), createdAt=new Date().toISOString();
     db.prepare('INSERT INTO episode_discussions(id,account_id,show_id,episode_path,text,created_at,parent_id,spoiler) VALUES (?,?,?,?,?,?,?,?)').run(id,ctx.account.id,req.params.showId,ctx.episode,text,createdAt,parentId,req.body.spoiler ? 1:0);
-    res.status(201).json(serialize(db.prepare(`${select} WHERE d.id=?`).get(ctx.account.id,id)));
+    if (parentId) community.notify({recipientId:db.prepare('SELECT account_id FROM episode_discussions WHERE id=?').get(parentId).account_id,actorId:ctx.account.id,commentId:id,kind:'reply'});
+    res.status(201).json(serialize(db.prepare(`${select} WHERE d.id=?`).get(ctx.account.id,id),ctx.account.id));
   });
   app.delete('/api/discussions/:showId/:id', (req,res) => {
     const account=requireAuth(req,res), row=comment(req,res,account);if (!row) return;
@@ -112,7 +116,21 @@ module.exports = function registerDiscussions(app, { db, requireAuth, getShow })
     if (typeof req.body?.liked !== 'boolean') return res.status(400).json({error:'Liked must be true or false'});
     if (req.body.liked) db.prepare('INSERT OR IGNORE INTO discussion_likes VALUES (?,?)').run(row.id,account.id);
     else db.prepare('DELETE FROM discussion_likes WHERE comment_id=? AND account_id=?').run(row.id,account.id);
+    if(req.body.liked)community.notify({recipientId:row.account_id,actorId:account.id,commentId:row.id,kind:'reaction'});
     res.json({liked:req.body.liked,likes:db.prepare('SELECT COUNT(*) AS n FROM discussion_likes WHERE comment_id=?').get(row.id).n});
+  });
+
+  app.put('/api/discussions/:showId/:id/reaction', (req,res) => {
+    const account=requireAuth(req,res),row=comment(req,res,account);if(!row)return;
+    const {emoji,active}=req.body||{};if(!community.reactions.includes(emoji)||typeof active!=='boolean')return res.status(400).json({error:'Choose a supported reaction'});
+    if(active){db.prepare('INSERT OR IGNORE INTO discussion_reactions VALUES (?,?,?)').run(row.id,account.id,emoji);community.notify({recipientId:row.account_id,actorId:account.id,commentId:row.id,kind:'reaction'});}
+    else db.prepare('DELETE FROM discussion_reactions WHERE comment_id=? AND account_id=? AND emoji=?').run(row.id,account.id,emoji);
+    res.json({reactions:community.getReactions(row.id,account.id)});
+  });
+  app.get('/api/discussions/:showId/:id/thread', (req,res) => {
+    const account=requireAuth(req,res),row=comment(req,res,account,true);if(!row)return;
+    const parentId=row.parent_id||row.id;const root=serialize(db.prepare(`${select} WHERE d.id=?`).get(account.id,parentId),account.id);
+    root.replies=db.prepare(`${select} WHERE d.parent_id=? ORDER BY d.created_at,d.id LIMIT 50`).all(account.id,parentId).map(r=>serialize(r,account.id));res.json(root);
   });
   app.post('/api/discussions/:showId/:id/report', (req,res) => {
     const account=requireAuth(req,res),row=comment(req,res,account);if (!row) return;

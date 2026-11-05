@@ -42,7 +42,7 @@ const API = {
     return this._fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password, role, wantsAdultContent }) });
   },
   login(username, password, totpCode) {
-    return this._fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password, totpCode }) });
+    return this._fetch(username.includes('@') ? '/api/auth/email/login' : '/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password, totpCode }) });
   },
   logout() { return this._fetch('/api/auth/logout', { method: 'POST' }); },
   get2FAStatus() { return this._fetch('/api/auth/2fa/status'); },

@@ -427,6 +427,7 @@ module.exports = {
   getAccount,
   createAccount,
   verifyPassword,
+  verifyTotpOrBackupCode,
   beginTotpSetup,
   confirmTotpSetup,
   disableTotp,

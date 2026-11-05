@@ -1,6 +1,6 @@
 {
   "name": "io-stream",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "I/O — Every story, your way. Self-hosted anime, movies and manga, based on Minami.",
   "main": "server/index.js",
   "scripts": {
@@ -15,6 +15,7 @@
   "license": "MIT",
   "dependencies": {
     "express": "^4.19.2",
+    "nodemailer": "^10.3.1",
     "ws": "^8.18.0"
   },
   "devDependencies": {

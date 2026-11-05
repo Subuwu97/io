@@ -24,6 +24,8 @@ async function renderApp() {
   const hash = location.hash || '#/';
   const parts = hash.replace(/^#\//, '').split('/').filter(Boolean);
 
+  if (await ioIdentityRoute(appRoot, parts)) return;
+
   // QR pairing approval works whether or not this device is currently
   // signed in - the page itself shows "sign in first" if needed.
   if (parts[0] === 'pair' && parts[1]) {
@@ -52,6 +54,16 @@ async function renderApp() {
   try {
     if (parts.length === 0) {
       await pageHome(appRoot);
+    } else if (parts[0] === 'live') {
+      await ioPageLive(appRoot, parts[1]);
+    } else if (parts[0] === 'live-manage') {
+      await ioPageLiveAdmin(appRoot);
+    } else if (parts[0] === 'account-security') {
+      await ioPageIdentity(appRoot);
+    } else if (parts[0] === 'services') {
+      await ioPageServices(appRoot);
+    } else if (parts[0] === 'community-notifications') {
+      await ioPageCommunityInbox(appRoot);
     } else if (parts[0] === 'series') {
       await pageGrid(appRoot, 'series');
     } else if (parts[0] === 'movies') {

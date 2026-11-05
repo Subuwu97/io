@@ -25,6 +25,20 @@ async function fixture(t) {
   return{db,request,comment};
 }
 
+test('emoji reactions and private notifications respect ownership, deduplication and preferences',async t=>{
+  const {request,comment}=await fixture(t);
+  const parent=await(await comment('a',{text:'Secret spoiler',spoiler:true})).json();
+  const react=(user,emoji,reacted)=>request(user,`/api/discussions/show/${parent.id}/reaction`,'PUT',{emoji,active:reacted});
+  assert.equal((await react('b','bad',true)).status,400);
+  assert.equal((await react('b','🔥',true)).status,200);await react('b','🔥',true);
+  let inbox=await(await request('a','/api/community/notifications')).json();assert.equal(inbox.items.length,1);assert.equal(inbox.unreadCount,1);assert.equal(JSON.stringify(inbox).includes('Secret spoiler'),false);
+  assert.equal((await(await request('b','/api/community/notifications')).json()).items.length,0);
+  assert.equal((await request('b','/api/community/notifications/read','POST',{id:inbox.items[0].id})).status,404);
+  await request('a','/api/community/notifications/read','POST',{all:true});assert.equal((await(await request('a','/api/community/notifications')).json()).unreadCount,0);
+  await request('a','/api/community/preferences','PUT',{enabled:false});await comment('mod',{text:'Reply',parentId:parent.id});
+  inbox=await(await request('a','/api/community/notifications')).json();assert.equal(inbox.items.length,1);
+});
+
 test('replies stay in their episode, likes are idempotent and deleting a parent preserves its replies',async t=>{
   const {db,request,comment}=await fixture(t);
   const parent=await(await comment('a',{text:'A spoiler',spoiler:true})).json();

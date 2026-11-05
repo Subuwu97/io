@@ -25,9 +25,13 @@ I/O uses its own `io_session` cookie and `io.db` database. By default, settings 
 - Playback speed, skip points, casting, picture-in-picture and synchronized watch parties.
 - Episode drawer and threaded episode discussions with replies, likes, spoiler hiding, reports and an admin moderation queue.
 - Accounts, profiles, two-factor authentication, device pairing and library administration.
+- Shared-schedule Live TV channels from your library, now/next cards and a TV guide.
+- Emoji reactions and a private reply/reaction inbox with unread state and preferences.
+- Verified email sign-in, expiring password recovery and optional Discord authorization.
+- Revised title/profile/settings layouts and private administrator service setup; the public address can be configured later.
 - I/O login with saved light/indigo/black themes, original mascot artwork, coral play/book mark and responsive navigation.
 
-See [reference comparison](docs/SERIKA-PARITY.md) for the remaining work and [installation details](docs/INSTALLATION.md) for the inherited media-server setup.
+See [0.3 release and service setup](docs/RELEASE-0.3.0.md), [reference comparison](docs/SERIKA-PARITY.md) and [installation details](docs/INSTALLATION.md). Email delivery and Discord require your own server-side configuration.
 
 ## Development
 

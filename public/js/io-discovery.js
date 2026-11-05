@@ -31,6 +31,7 @@
   global.pageHome=async function(root) {
     await originalHome(root);
     const rows=root.querySelector('#rows');if(!rows)return;
+    root.querySelectorAll('#ioCollections,.io-browse-end').forEach(node=>node.remove());
     const pool=Store.filterForActiveProfile([...Store.anime,...Store.movies]);
     if(!pool.length)return;
     rows.insertAdjacentHTML('afterend',`<div id="ioCollections" class="rows-wrap"></div><section class="io-browse-end"><div aria-hidden="true">✦</div><h2>You've reached the end</h2><p>Find another side of your collection. Refresh to explore different shows and themes.</p><button class="btn btn-primary" id="ioRefreshBrowse" ${pool.length<2?'disabled':''}>Show me different stuff</button><p id="ioBrowseStatus" role="status" aria-live="polite"></p></section>`);

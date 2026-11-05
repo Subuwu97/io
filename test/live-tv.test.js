@@ -1,0 +1,30 @@
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const express=require('express');
+const {DatabaseSync}=require('node:sqlite');
+const {schedule,registerLive}=require('../server/live-tv');
+test('live schedule repeats on a shared clock and rejects invalid timing',()=>{
+  const channel={id:'tv',anchorMs:1000,playlist:[{title:'A',durationMs:10000},{title:'B',durationMs:20000}]};
+  const result=schedule(channel,36000,71000).programmes;
+  assert.deepEqual(result.map(p=>[p.title,p.startMs,p.endMs]),[['A',31000,41000],['B',41000,61000],['A',61000,71000]]);
+  assert.equal(schedule({...channel,playlist:[{durationMs:-1}]},0,100).programmes.length,0);
+  assert.equal(schedule(channel,0,100000,2).truncated,true);
+});
+test('live channel administration validates media and guide enforces profile ownership and child filtering',async t=>{
+  const db=new DatabaseSync(':memory:');db.exec("CREATE TABLE profiles(id TEXT,account_id TEXT,is_kids INTEGER);INSERT INTO profiles VALUES('kid','admin',1),('foreign','other',0)");
+  const app=express();app.use(express.json());let clock=100000;
+  const show={id:'s',title:'Show',rating:'PG',groups:[{name:'Season',episodes:[{title:'One',index:1,relPath:'01.mp4'}]}]};
+  registerLive(app,{db,now:()=>clock,requireAuth(req,res){if(!req.headers['x-user']){res.status(401).end();return null;}return{id:req.headers['x-user'],role:req.headers['x-user']==='admin'?'admin':'user'};},getLibrary:()=>({cache:{anime:[show],movies:[]},getShow:id=>id==='s'?show:null,resolveEpisodeFile:(id,path)=>id==='s'&&path==='01.mp4'?'fixture':null}),getStreamInfo:async()=>({duration:15})});
+  const server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));t.after(async()=>{await new Promise(r=>server.close(r));db.close();});
+  const req=(path,method='GET',body,user='admin')=>fetch(`http://127.0.0.1:${server.address().port}${path}`,{method,headers:{'x-user':user,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});
+  const input={name:'I/O TV',enabled:true,playlist:[{showId:'s',relPath:'01.mp4'}]};
+  assert.equal((await req('/api/admin/live/channels','POST',input,'viewer')).status,403);
+  assert.equal((await req('/api/admin/live/channels','POST',{...input,playlist:[{showId:'s',relPath:'../secret'}]})).status,400);
+  const created=await req('/api/admin/live/channels','POST',input);assert.equal(created.status,201);const channel=await created.json();clock+=35000;
+  const live=await(await req('/api/live/channels/'+channel.id+'/now')).json();assert.equal(live.offsetSeconds,5);assert.equal(live.current.startMs,130000);
+  assert.equal((await req('/api/live/guide?profileId=foreign')).status,403);
+  show.rating='Rx - Hentai';assert.equal((await(await req('/api/live/guide?profileId=kid')).json()).channels.length,0);
+  assert.equal((await(await req('/api/live/guide')).json()).channels.length,1);
+  assert.equal((await req('/api/live/guide?hours=100')).status,400);
+  await req('/api/admin/live/channels/'+channel.id,'DELETE');assert.equal((await req('/api/live/channels/'+channel.id+'/now')).status,404);
+});
