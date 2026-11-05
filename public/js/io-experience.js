@@ -18,22 +18,7 @@ function ioWirePlayer(root, show, currentEp) {
   root.querySelector('.player-page').insertAdjacentHTML('beforeend', `<section class="io-watch-info"><h1>${escapeHtml(currentEp.title)}</h1><p class="io-episode-meta">Episode ${currentEp.index} ${show.year ? '· '+escapeHtml(String(show.year)) : ''}</p><p>${escapeHtml(currentEp.description || show.description || '')}</p>
     <div class="io-track-links">${show.anilistId ? `<a href="https://anilist.co/anime/${encodeURIComponent(show.anilistId)}" target="_blank" rel="noopener noreferrer">AniList ↗</a>` : ''}${show.malId ? `<a href="https://myanimelist.net/anime/${encodeURIComponent(show.malId)}" target="_blank" rel="noopener noreferrer">MAL ↗</a>` : ''}</div>
     <h2>Discussion</h2><form id="ioDiscussionForm"><label for="ioDiscussionText" class="io-sr-only">Your comment</label><textarea id="ioDiscussionText" placeholder="Start the discussion…" maxlength="2000" required></textarea><button type="submit" class="btn btn-primary">Post</button><p id="ioDiscussionError" role="status"></p></form><div id="ioDiscussionList"></div></section>`);
-  const endpoint = `/api/discussions/${encodeURIComponent(show.id)}`;
-  const list = root.querySelector('#ioDiscussionList'), error = root.querySelector('#ioDiscussionError');
-  async function load() {
-    try {
-      const comments = await API._fetch(endpoint+'?episode='+encodeURIComponent(currentEp.relPath));
-      if (!list.isConnected) return;
-      list.innerHTML = comments.length ? comments.map(c => `<article class="io-discussion"><header><strong>${escapeHtml(c.username)}</strong><time>${escapeHtml(new Date(c.createdAt).toLocaleString())}</time>${Store.account && (c.accountId === Store.account.id || Store.account.role === 'admin') ? `<button data-delete-comment="${escapeHtml(c.id)}">Delete</button>` : ''}</header><p>${escapeHtml(c.text)}</p></article>`).join('') : '<p class="io-muted">No comments yet. Be the first to start the discussion!</p>';
-      list.querySelectorAll('[data-delete-comment]').forEach(button => { button.onclick = async () => { try { await API._fetch(endpoint+'/'+encodeURIComponent(button.dataset.deleteComment), {method:'DELETE'}); await load(); } catch(e) { error.textContent=e.message; } }; });
-    } catch(e) { if (error.isConnected) error.textContent=e.message; }
-  }
-  root.querySelector('#ioDiscussionForm').onsubmit = async e => {
-    e.preventDefault(); const button=e.target.querySelector('button'); button.disabled=true; error.textContent='';
-    try { await API._fetch(endpoint, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({episode:currentEp.relPath,text:root.querySelector('#ioDiscussionText').value})}); e.target.reset(); await load(); }
-    catch(err) { error.textContent=err.message; } finally { button.disabled=false; }
-  };
-  load();
+  ioMountDiscussions(root, show, currentEp);
 }
 
 function ioConfigurePlayer(root, chapters, seekTo) {

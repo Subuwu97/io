@@ -52,6 +52,7 @@ function renderNavbar(activeRoute) {
       <li><button id="signInDeviceBtn">&#128241; Sign In Another Device</button></li>
       <li><a href="#/settings">&#9881; Settings</a></li>
       ${isAdmin ? `<li><a href="#/manage-accounts">&#128101; Manage Accounts</a></li>` : ''}
+      ${isAdmin ? `<li><a href="#/moderation">Discussion reports</a></li>` : ''}
       ${isAdmin ? `<li><a href="#/admin-dashboard">&#128202; Admin Dashboard</a></li>` : ''}
       <li class="divider"><button class="signout" id="signOutBtn">&#8618; Sign out</button></li>
     </ul>

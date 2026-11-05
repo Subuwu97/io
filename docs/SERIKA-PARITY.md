@@ -4,11 +4,11 @@ Reference inspected: signed-in https://serika.moe/browse and the user-provided w
 
 | Area | Current I/O state | Remaining parity work |
 | --- | --- | --- |
-| Branding/login | I/O artwork, SVG logo, black/lavender/coral form; real local authentication | Light and indigo login themes; optional external sign-in |
-| Browse | Carousel, title cards, continue/currently watching, recommendations, curated rows, footer and mobile navigation | Exact card dimensions, menu layout, dynamic thematic collections and refresh flow |
+| Branding/login | I/O artwork and SVG logo; black, indigo and light login palettes with saved selection; real local authentication | Isolated mascot artwork for closer visual matching; optional external sign-in |
+| Browse | Carousel, title cards, continue/currently watching, recommendations, curated rows, themed collections, refresh flow, footer and mobile navigation | Exact card dimensions and menu layout |
 | Details | Local title metadata, season/episode selection, reviews, lists, cast and related titles | Exact Serika detail layout and all menu interactions |
 | Player | Existing HLS, quality, audio, subtitles, speed, skip points, casting and watch parties; new episode drawer, unified settings panel and embedded chapter seeking | Precise overlay, submenu appearance and control parity |
-| Discussions | Episode-scoped persistent comments, authenticated posting, delete ownership and rate limit | Replies, reactions, spoilers, reporting and moderation workflow |
+| Discussions | Threaded replies, likes, spoiler hiding, pagination, reports and an administrator review queue; ownership, rate limits and audited review actions | Additional reaction types, notifications and closer visual matching |
 | Accounts | Local accounts, approval, profiles, 2FA, pairing, history and lists | Serika profile/settings layout, email authentication and password recovery |
 | Live TV | Not implemented | Live playout, channel schedules and TV guide |
 | External services | Local metadata integrations inherited from Minami | OAuth applications, email delivery and any service-specific credentials must be configured independently |

@@ -112,3 +112,67 @@ body { font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,'Seg
 .io-settings-panel .ctl-menu-wrap { display:block; }
 .io-settings-panel .ctl-popup { flex-shrink:0; right:auto; left:auto; bottom:auto; }
 .player-page .rating-badge-wrap { top:90px; left:24px; }
+/* Threaded discussion and moderation */
+.io-thread { border-bottom:1px solid #292530; padding:14px 0; }
+.io-thread .io-discussion { border:0; padding:15px 0; }
+.io-thread-replies { margin-left:30px; padding-left:22px; border-left:2px solid #34283e; }
+.io-comment-actions { display:flex; flex-wrap:wrap; gap:16px; margin-top:12px; }
+.io-comment-actions button,.io-load-replies { background:none; color:#a69caf; border:0; padding:4px 0; cursor:pointer; font-size:12px; }
+.io-comment-actions button:hover,.io-comment-actions button[aria-pressed="true"] { color:#b894ff; }
+.io-load-replies { color:#b894ff; margin:10px 0 10px 52px; }
+.io-spoiler { padding:12px 16px; border:1px solid #4a3c5e; border-radius:6px; background:#a78bfa09; }
+.io-spoiler summary { color:#bfa8ed; cursor:pointer; font-size:13px; }
+.io-spoiler:not([open]) { min-height:45px; }
+.io-spoiler-check { display:flex; align-items:center; gap:8px; margin-right:auto; font-size:13px; color:#aca0b7; }
+.io-spoiler-check input { accent-color:#a78bfa; }
+.io-reply-target { width:100%; display:flex; align-items:center; justify-content:space-between; gap:15px; padding:12px 14px; background:#a78bfa16; font-size:13px; }
+.io-reply-target[hidden] { display:none; }
+.io-reply-target button { border:0; color:#bfa8ed; background:none; cursor:pointer; }
+#ioDiscussionError.io-discussion-status { color:#c6b5da; }
+.io-more-discussions { margin:20px 0; }
+.io-report-dialog { width:min(500px,92vw); border:1px solid #4b3e5b; border-radius:12px; background:#141119; color:#eee8f6; padding:28px; }
+.io-report-dialog::backdrop { background:#000a; }
+.io-report-dialog h2 { margin-top:0; }
+.io-report-dialog p { color:#b6a9c5; line-height:1.6; font-size:14px; }
+.io-report-dialog textarea { width:100%; min-height:120px; resize:vertical; margin:12px 0; padding:12px; background:#09080d; border:1px solid #594967; border-radius:6px; color:white; font:inherit; }
+.io-dialog-actions { display:flex; flex-wrap:wrap; justify-content:flex-end; gap:12px; margin-top:22px; }
+.io-report-card { padding:24px; border:1px solid #342c3e; border-radius:8px; margin:20px 0; background:#111015; }
+.io-report-card header { display:flex; gap:20px; flex-wrap:wrap; margin-bottom:18px; }
+.io-report-card p { font-size:14px; line-height:1.7; }
+.io-report-card .io-muted { text-align:left; padding:0; }
+.io-report-card a { color:#bfa8ed; font-size:13px; }
+.io-report-body { white-space:pre-wrap; overflow-wrap:anywhere; }
+.io-moderation>p { color:#a69caf; }
+.io-moderation select { margin:12px; padding:10px; background:#1a1521; color:white; border:1px solid #564367; border-radius:5px; }
+.io-thread button:focus-visible,.io-report-card button:focus-visible { outline:2px solid #bfa8ed; outline-offset:4px; }
+/* Collections and login palette controls */
+.io-collection { position:relative; padding-top:10px; }
+.io-collection-description { margin:0 48px 8px; color:#9d92ac; font-size:13px; }
+.io-browse-end { padding:60px 24px 75px; text-align:center; }
+.io-browse-end>div { font-size:40px; color:#a78bfa; margin-bottom:20px; }
+.io-browse-end h2 { font-size:24px; margin:12px 0; }
+.io-browse-end p { color:#9c91aa; max-width:540px; margin:16px auto 24px; font-size:14px; line-height:1.7; }
+.io-browse-end button:disabled { opacity:.5; cursor:default; }
+.io-login-themes { display:flex; gap:4px; margin-left:auto; padding:4px; border:1px solid #51445e; border-radius:24px; }
+.io-login-themes button { color:#bdb2ce; background:none; border:0; border-radius:20px; padding:8px 12px; font:inherit; font-size:11px; cursor:pointer; }
+.io-login-themes button[aria-pressed="true"] { color:#140e21; background:#b59af2; }
+.io-login[data-login-theme="indigo"] { background:#111127; }
+.io-login[data-login-theme="indigo"] .login-form-area { background:linear-gradient(145deg,#242142,#141329); border-color:#655585; }
+.io-login[data-login-theme="indigo"] .io-login-art { border-radius:25px; background-color:#000; }
+.io-login[data-login-theme="light"] { background:#f3effa; color:#241b31; }
+.io-login[data-login-theme="light"] .login-form-area { background:#fff; border-color:#c5b7dc; box-shadow:0 20px 70px #4c296015; }
+.io-login[data-login-theme="light"] .io-login-header { border-color:#d6cbe3; }
+.io-login[data-login-theme="light"] .io-login-header>img,.io-login[data-login-theme="light"] .io-form-logo { background:#181320; border-radius:10px; padding:4px; }
+.io-login[data-login-theme="light"] .io-login-header>span { color:#695c78; border-color:#d6cbe3; }
+.io-login[data-login-theme="light"] .login-field input { color:#241b31; background:#f8f5fc; border-color:#9a85b3; }
+.io-login[data-login-theme="light"] .login-field input::placeholder { color:#776586; }
+.io-login[data-login-theme="light"] .auth-subtitle,.io-login[data-login-theme="light"] .qr-instructions { color:#685973; }
+.io-login[data-login-theme="light"] .io-tagline,.io-login[data-login-theme="light"] .forgot-link,.io-login[data-login-theme="light"] .auth-mode-toggle-link { color:#b43d3c; }
+.io-login[data-login-theme="light"] .login-qr-btn { color:#49335f; border-color:#a48bbf; background:#f8f5fc; }
+.io-login[data-login-theme="light"] .login-divider { color:#7a668a; }
+.io-login[data-login-theme="light"] .io-login-themes button { color:#665174; }
+.io-login[data-login-theme="light"] .io-login-themes button[aria-pressed="true"] { color:#21132c; }
+@media(max-width:700px) { .io-thread-replies { margin-left:12px; padding-left:14px; } .io-login-header>span { display:none; } .io-login-themes button { padding:7px 10px; } .io-collection-description { margin:0 16px 10px; } .io-browse-end { padding-bottom:100px; } }
+.io-more-discussions[hidden] { display:none; }
+.io-login[data-login-theme="light"] { color-scheme:only light; }
+.io-login-art { min-height:0; height:auto; max-height:none; aspect-ratio:.9; background-position:left top; clip-path:inset(5vw 0 0 0 round 20px); }

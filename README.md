@@ -20,12 +20,12 @@ I/O uses its own `io_session` cookie and `io.db` database. By default, settings 
 ## Available
 
 - Local anime, movie and manga libraries; metadata imports, search and categories.
-- Featured carousel, Continue Watching, Currently Watching, recommendations and curated rows.
+- Featured carousel, Continue Watching, Currently Watching, recommendations, curated rows and refreshable themed collections.
 - HLS playback, quality selection, audio/subtitle selection and styled ASS subtitles.
 - Playback speed, skip points, casting, picture-in-picture and synchronized watch parties.
-- Episode drawer and persistent episode discussions with account ownership and admin deletion.
+- Episode drawer and threaded episode discussions with replies, likes, spoiler hiding, reports and an admin moderation queue.
 - Accounts, profiles, two-factor authentication, device pairing and library administration.
-- I/O login, original mascot artwork, coral play/book mark and responsive navigation.
+- I/O login with saved light/indigo/black themes, original mascot artwork, coral play/book mark and responsive navigation.
 
 See [reference comparison](docs/SERIKA-PARITY.md) for the remaining work and [installation details](docs/INSTALLATION.md) for the inherited media-server setup.
 

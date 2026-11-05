@@ -1,6 +1,6 @@
 {
   "name": "io-stream",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "I/O — Every story, your way. Self-hosted anime, movies and manga, based on Minami.",
   "main": "server/index.js",
   "scripts": {

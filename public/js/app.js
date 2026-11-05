@@ -74,6 +74,8 @@ async function renderApp() {
       await pageSettings(appRoot);
     } else if (parts[0] === 'manage-accounts') {
       await pageManageAccounts(appRoot);
+    } else if (parts[0] === 'moderation') {
+      await ioPageModeration(appRoot);
     } else if (parts[0] === 'admin-dashboard') {
       await pageAdminDashboard(appRoot);
     } else if (parts[0] === 'search') {
