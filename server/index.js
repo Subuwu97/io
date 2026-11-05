@@ -67,7 +67,7 @@ const BUILTIN_AVATARS_DIR = path.join(BASE_DIR, 'public', 'img', 'avatars');
 // way. Used both for the startup banner and the JS/CSS cache-busting
 // query param below, so they can never drift out of sync with each
 // other.
-const BUILD_VERSION = 'io-0.3.0-complete-2026-11-05';
+const BUILD_VERSION = 'io-0.3.1-polish-2026-11-05';
 const CONFIG_PATH = path.join(DATA_DIR, 'config.json');
 const SESSION_COOKIE = 'io_session';
 const SESSION_MAX_AGE_SEC = 30 * 24 * 60 * 60; // 30 days
