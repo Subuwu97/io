@@ -1,0 +1,23 @@
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { execFileSync } = require('node:child_process');
+const ffm = require('../server/ffmpeg');
+const { createAssService } = require('../server/ass-subtitles');
+test('ASS extraction preserves karaoke, animation, vector drawings and embedded font bytes', { skip: !ffm.HAS_FFMPEG || !ffm.HAS_FFPROBE, timeout: 30000 }, async () => {
+  const base = process.env.IO_TEST_ROOT || os.tmpdir(); fs.mkdirSync(base, { recursive: true });
+  const dir = fs.mkdtempSync(path.join(base, 'io-ass-'));
+  const subtitle = path.join(dir, 'song.ass'), media = path.join(dir, 'song.mkv');
+  const font = path.resolve(__dirname, '../public/vendor/jassub/default.woff2');
+  fs.writeFileSync(subtitle, `[Script Info]\nScriptType: v4.00+\nPlayResX: 320\nPlayResY: 180\n[V4+ Styles]\nFormat: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding\nStyle: Default,Liberation Sans,22,&H00FFFFFF,&H0000FFFF,&H00000000,&H00000000,0,0,0,0,100,100,0,0,1,1,0,2,10,10,10,1\n[Events]\nFormat: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text\nDialogue: 0,0:00:00.00,0:00:02.00,Default,,0,0,0,,{\\k30}Song {\\t(0,1000,\\blur4)}sparkle\nDialogue: 1,0:00:00.00,0:00:02.00,Default,,0,0,0,,{\\p1\\pos(40,40)}m 0 0 l 5 15 10 0 0 10 10 10\n`);
+  execFileSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'color=c=black:s=320x180:r=24:d=2', '-i', subtitle, '-map', '0:v', '-map', '1:0', '-c:v', 'libx264', '-c:s', 'ass', '-attach', font, '-metadata:s:t', 'mimetype=font/woff2', '-metadata:s:t', 'filename=Fallback.woff2', media], { timeout: 10000, windowsHide: true });
+  const service = createAssService({ directory: path.join(dir, 'cache'), probe: ffm.probe, trackLive: ffm.trackLive });
+  const info = await service.manifest(media, 1); assert.equal(info.codec, 'ass'); assert.equal(info.fonts.length, 1);
+  assert.equal(info.lyrics.length, 1); assert.equal(info.lyrics[0].text, 'Song sparkle');
+  const text = (await service.extract(media, 1)).toString();
+  assert.ok(text.includes('\\k30')); assert.ok(text.includes('\\t(')); assert.ok(text.includes('\\p1')); assert.ok(text.includes('sparkle'));
+  assert.deepEqual(await service.extract(media, info.fonts[0], true), fs.readFileSync(font));
+  await assert.rejects(service.manifest(media, 0), { status: 422 });
+});

@@ -1,0 +1,23 @@
+const { test } = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const os = require('node:os');
+const base = process.env.IO_TEST_ROOT || os.tmpdir(); fs.mkdirSync(base, { recursive: true });
+process.env.IO_DATA_DIR = fs.mkdtempSync(path.join(base, 'io-accounts-'));
+const accounts = require('../server/accounts');
+test('async password hashing keeps the event loop free and concurrent first registrations cannot gain extra admin roles', async () => {
+  let ticks = 0; const timer = setInterval(() => ticks++, 1);
+  const created = await Promise.all(['firstuser', 'seconduser'].map(username => accounts.createAccount({ username, password: 'Test-Password-123', role: 'admin', registrationPolicy: { admin: false, allow: true, approval: true } })));
+  clearInterval(timer); assert.ok(ticks > 0);
+  assert.equal(created.filter(account => account.role === 'admin').length, 1);
+  assert.equal(created.filter(account => !account.approved).length, 1);
+  const admin = created.find(account => account.role === 'admin');
+  assert.equal((await accounts.verifyPassword({ username: admin.username, password: 'Test-Password-123' })).id, admin.id);
+  assert.equal(await accounts.verifyPassword({ username: admin.username, password: 'wrong-password' }), null);
+  const token = accounts.createSession(admin.id, 'test');
+  await accounts.changePassword(admin.id, 'Test-Password-123', 'Updated-Password-456', token);
+  assert.equal(await accounts.verifyPassword({ username: admin.username, password: 'Test-Password-123' }), null);
+  assert.equal((await accounts.verifyPassword({ username: admin.username, password: 'Updated-Password-456' })).id, admin.id);
+  assert.equal(accounts.getAccountByToken(token).id, admin.id);
+});

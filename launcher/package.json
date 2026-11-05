@@ -1,0 +1,16 @@
+{
+  "name": "io-launcher",
+  "version": "1.0.0",
+  "description": "Desktop control panel for starting, stopping, and monitoring the I/O server - a separate app from the server itself, kept in its own folder so the server's own dependencies stay untouched by this.",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "dependencies": {
+    "electron": "^33.0.0"
+  },
+  "allowScripts": {
+    "electron": true
+  }
+}

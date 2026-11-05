@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>I/O</title>
+<link rel="icon" href="/img/io-icon.svg" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css" />
+<meta name="description" content="I/O — Every story, your way. Watch anime. Read manga."/>
+<link rel="stylesheet" href="/css/io.css"/>
+</head>
+<body>
+  <div class="top-bar" id="topBar"></div>
+  <div id="app"></div>
+  <div class="toast" id="toast"></div>
+
+  <!-- Chromecast support: optional, loads from Google's CDN. If this
+       can't load (no internet, or blocked), the Cast button in the
+       player simply never appears - nothing else depends on it. -->
+  <script src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1" async></script>
+  <!-- Needed for HLS playback in browsers without native support (Safari has it built in;
+       everything else - Chrome, Firefox, Edge - needs this to play the segmented streams
+       the server generates for anything that needs transcoding). -->
+  <script src="/vendor/hls.min.js"></script>
+  <script src="/js/qrcode.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/state.js"></script>
+  <script src="/js/components.js"></script>
+  <script src="/js/ass-player.js"></script>
+<script src="/js/playback-measurements.js"></script>
+<script src="/js/pages.js"></script>
+  <script src="/js/io-experience.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>

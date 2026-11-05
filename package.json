@@ -1,0 +1,25 @@
+{
+  "name": "io-stream",
+  "version": "0.1.0",
+  "description": "I/O — Every story, your way. Self-hosted anime, movies and manga, based on Minami.",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "dev": "node server/index.js",
+    "test": "node --test test/*.test.js",
+    "build:vendor": "node scripts/build-vendor.cjs"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.19.2",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "hls.js": "1.7.4",
+    "jassub": "2.5.35"
+  }
+}

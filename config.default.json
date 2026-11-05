@@ -1,0 +1,41 @@
+{
+  "siteName": "I/O",
+  "port": 4821,
+  "malClientId": "",
+  "jellyfinServerUrl": "",
+  "jellyfinApiKey": "",
+  "preferEnglishTitles": true,
+  "hardwareAcceleration": true,
+  "maxStreamCacheGB": 15,
+  "theme": {
+    "accent": "#7814e6",
+    "accent2": "#9b55f1",
+    "background": "#080808"
+  },
+  "mediaPaths": {
+    "anime": "./media/anime",
+    "movies": "./media/movies",
+    "manga": "./media/manga"
+  },
+  "videoExtensions": [
+    ".mp4",
+    ".mkv",
+    ".webm",
+    ".mov",
+    ".avi"
+  ],
+  "imageExtensions": [
+    ".jpg",
+    ".jpeg",
+    ".png",
+    ".webp"
+  ],
+  "https": {
+    "certPath": "",
+    "keyPath": ""
+  },
+  "libraryScanTimeoutSec": 240,
+  "metadataSource": "mal",
+  "allowSelfRegistration": true,
+  "requireApprovalForSelfRegistration": true
+}

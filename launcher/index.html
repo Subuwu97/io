@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8"/>
+<title>IO Control Panel</title>
+<link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+  <div class="panel">
+    <header class="panel-header">
+      <img class="panel-logo" src="../public/img/io-logo.svg" alt="IO"/>
+      <div class="status-badge" id="statusBadge">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText">Starting&hellip;</span>
+      </div>
+    </header>
+
+    <div class="control-row">
+      <button class="ctl-primary" id="startBtn">Start</button>
+      <button class="ctl-primary ctl-danger" id="stopBtn">Stop</button>
+      <button class="ctl-primary ctl-outline" id="restartBtn">Restart</button>
+    </div>
+
+    <div class="admin-row">
+      <button class="admin-btn" id="openBrowserBtn">Open in Browser</button>
+      <button class="admin-btn" id="copyUrlBtn">Copy Server URL</button>
+      <button class="admin-btn" id="openDataBtn">Open Data Folder</button>
+      <button class="admin-btn" id="clearLogsBtn">Clear Logs</button>
+    </div>
+
+    <div class="log-panel" id="logPanel"></div>
+  </div>
+  <script src="renderer.js"></script>
+</body>
+</html>

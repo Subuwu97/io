@@ -1,0 +1,45 @@
+node_modules/
+*.log
+.DS_Store
+Thumbs.db
+data/uploads/
+data/pdf-cache/
+data/profiles.json
+data/accounts.json
+data/config.json
+data/minami.db
+data/minami.db-*
+data/*.migrated
+data/stream-cache/
+autostart-launcher.vbs
+# Generated at runtime - certs/ in particular contains a private TLS
+# key and must never be committed, especially to a public repo.
+data/certs/
+data/cast-cache/
+data/episode-thumbs/
+data/trickplay/
+data/subtitle-cache/
+data/backups/
+data/first_seen/
+*.pem
+*.key
+
+# Local secrets and legacy settings
+.env
+.env.*
+!.env.example
+/config.json
+
+# Persistent user data (keep only directory placeholders)
+/data/**
+!/data/**/
+!/data/**/.gitkeep
+
+# Local media collections (keep setup instructions)
+/media/**
+!/media/**/
+!/media/**/README.txt
+
+# Desktop launcher build output
+/launcher/dist/
+/launcher/out/

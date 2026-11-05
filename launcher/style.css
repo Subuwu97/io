@@ -1,0 +1,77 @@
+/* Same palette and font as the web app's own login page (public/css/style.css)
+   - kept in sync deliberately, not just similar, so this genuinely looks
+   like part of the same product rather than an approximation of it. */
+:root {
+  --accent: #f4568c;
+  --accent-2: #ff8a3d;
+  --bg: #0a0a0f;
+  --bg-elevated: #15141c;
+  --bg-card: #1a1922;
+  --text: #f5f5f7;
+  --text-dim: #a8a5b4;
+  --text-faint: #6b6878;
+  --border: rgba(255, 255, 255, 0.08);
+  --radius: 10px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0; padding: 0; height: 100%;
+  background: #050408;
+  color: var(--text);
+  font-family: 'Poppins', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  overflow: hidden;
+  user-select: none; /* this is a control panel, not a document - nothing here needs text selection */
+}
+
+.panel { display: flex; flex-direction: column; height: 100vh; padding: 22px 26px; }
+
+.panel-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px;
+}
+.panel-logo { height: 42px; width: auto; display: block; }
+
+.status-badge {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 20px;
+  padding: 7px 14px; font-size: 13px; font-weight: 600; color: var(--text-dim);
+}
+.status-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--text-faint); transition: background .2s; }
+.status-dot.running { background: #4ade80; box-shadow: 0 0 8px rgba(74,222,128,0.6); }
+.status-dot.starting, .status-dot.stopping { background: var(--accent-2); box-shadow: 0 0 8px rgba(255,138,61,0.5); }
+.status-dot.stopped { background: var(--text-faint); }
+
+.control-row { display: flex; gap: 12px; margin-bottom: 14px; }
+.ctl-primary {
+  flex: 1; border: none; border-radius: var(--radius); padding: 14px; font-weight: 800;
+  letter-spacing: 0.6px; font-size: 14px; color: #fff; cursor: pointer;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  box-shadow: 0 8px 20px rgba(139,48,240,0.25); transition: transform .1s, box-shadow .15s, opacity .15s;
+}
+.ctl-primary:hover:not(:disabled) { box-shadow: 0 10px 24px rgba(139,48,240,0.4); }
+.ctl-primary:active:not(:disabled) { transform: scale(0.98); }
+.ctl-primary:disabled { opacity: 0.35; cursor: default; box-shadow: none; }
+.ctl-primary.ctl-danger { background: linear-gradient(135deg, #dc2626, #f4568c); box-shadow: 0 8px 20px rgba(220,38,38,0.2); }
+.ctl-primary.ctl-outline {
+  background: rgba(255,255,255,0.05); border: 1px solid var(--border); box-shadow: none;
+}
+.ctl-primary.ctl-outline:hover:not(:disabled) { background: rgba(255,255,255,0.09); box-shadow: none; }
+
+.admin-row { display: flex; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+.admin-btn {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
+  padding: 9px 14px; font-size: 12.5px; font-weight: 600; color: var(--text-dim); cursor: pointer;
+}
+.admin-btn:hover { color: #fff; border-color: rgba(255,255,255,0.2); }
+
+.log-panel {
+  flex: 1; background: #050408; border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 14px 16px; overflow-y: auto; font-family: 'SF Mono', Consolas, Menlo, monospace;
+  font-size: 12px; line-height: 1.6; color: var(--text-dim); white-space: pre-wrap; word-break: break-word;
+  user-select: text; /* the one part of the UI where selecting text (to copy an error, say) actually matters */
+}
+.log-panel .log-error { color: #f87171; }
+.log-panel::-webkit-scrollbar { width: 8px; }
+.log-panel::-webkit-scrollbar-thumb { background: var(--bg-card); border-radius: 4px; }
