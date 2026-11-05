@@ -808,7 +808,7 @@ const PLAYER_ICONS = {
   people: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>',
 };
 
-async function pagePlayer(root, showId, relPathEncoded) {
+async function pagePlayer(root, showId, relPathEncoded, options = {}) {
   if (Store.anime.length === 0) await Store.loadLibrary();
   let show = Store.findAnime(showId);
   if (show && !show.groups) show = await API.getAnime(showId).catch(() => show);
@@ -828,11 +828,11 @@ async function pagePlayer(root, showId, relPathEncoded) {
   }
   if (!currentEp) { location.hash = `#/title/${showId}`; return; }
 
-  const prevEp = epIdxInGroup > 0 ? group.episodes[epIdxInGroup - 1] : null;
-  let nextEp = epIdxInGroup < group.episodes.length - 1 ? group.episodes[epIdxInGroup + 1] : null;
+  const prevEp = !options.live && epIdxInGroup > 0 ? group.episodes[epIdxInGroup - 1] : null;
+  let nextEp = !options.live && epIdxInGroup < group.episodes.length - 1 ? group.episodes[epIdxInGroup + 1] : null;
   let nextEpIsNewSeason = false;
   let nextSeasonName = null;
-  if (!nextEp) {
+  if (!nextEp && !options.live) {
     // Last episode of this season - look into the next one, if there
     // is one, rather than treating this as the end of the whole show
     // just because this particular season is done.
@@ -989,7 +989,7 @@ async function pagePlayer(root, showId, relPathEncoded) {
   const measurements = new window.IOPlaybackMeasurements(video, () => video.currentSrc.startsWith('blob:') || video.currentSrc.includes('.m3u8') ? 'hls' : 'direct');
   window.addEventListener('hashchange', () => measurements.destroy(), { once: true });
   const savedProgress = Store.activeProfile && Store.activeProfile.progress && Store.activeProfile.progress[showId];
-  const resumeAt = (savedProgress && savedProgress.episodeRelPath === relPath && savedProgress.seconds > 5) ? savedProgress.seconds : 0;
+  const resumeAt = options.live ? (options.startAt || 0) : (savedProgress && savedProgress.episodeRelPath === relPath && savedProgress.seconds > 5) ? savedProgress.seconds : 0;
 
   // ---- Fetch track info (audio/subtitle languages, resolution, duration) ----
   let streamInfo = { ffmpegAvailable: false, canPassthrough: true, audioTracks: [], subtitleTracks: [], duration: null, videoHeight: null };
@@ -2231,7 +2231,7 @@ async function pagePlayer(root, showId, relPathEncoded) {
   showChrome();
 
   // ==================== Up Next overlay ====================
-  const autoplayEnabled = !Store.activeProfile || Store.activeProfile.autoplayNext !== false;
+  const autoplayEnabled = !options.live && (!Store.activeProfile || Store.activeProfile.autoplayNext !== false);
   const nextEpOverlay = document.getElementById('nextEpOverlay');
   let upNextShown = false; // prevents re-triggering once dismissed/navigated for this episode
   let upNextTimer = null;
@@ -2343,7 +2343,7 @@ async function pagePlayer(root, showId, relPathEncoded) {
   let autoMarkedWatched = false;
   let precacheFired = false;
   function saveProgress() {
-    if (!Store.activeProfile || reloading || !totalDuration()) return;
+    if (options.live || !Store.activeProfile || reloading || !totalDuration()) return;
     API.setProgress(Store.activeProfile.id, showId, relPath, absoluteTime(), totalDuration()).catch(() => {});
     // Halfway through, quietly ask the server to start preparing the
     // next episode's cached copy in the background, so "Next Episode"
@@ -2363,6 +2363,7 @@ async function pagePlayer(root, showId, relPathEncoded) {
     }
   }
   video.addEventListener('ended', () => {
+    if (options.live) { options.onEnded?.(); return; }
     if (nextEp && autoplayEnabled && !upNextTimer) { location.hash = `#/watch/${showId}/${encodeURIComponent(nextEp.relPath)}`; return; }
     if (!nextEp) showSeriesEndRecommendation();
   });
@@ -2475,6 +2476,7 @@ async function pagePlayer(root, showId, relPathEncoded) {
 
   if (selectedSubtitle != null) applySubtitle(selectedSubtitle);
   loadVideo(resumeAt, true);
+  options.onReady?.({video, seekTo, absoluteTime, totalDuration});
 }
 
 
