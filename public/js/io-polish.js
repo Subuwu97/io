@@ -33,4 +33,13 @@
     for(const [label,target]of [['Security','#passwordForm'],['Child Safety','#adultContentToggle'],['Signed-in devices','#sessionsList']]){const element=shell.querySelector(target);if(!element)continue;const button=document.createElement('button');button.type='button';button.textContent=label;button.onclick=()=>element.scrollIntoView({block:'center',behavior:'smooth'});nav.insertBefore(button,nav.children[1]);}
     if(Store.activeProfile){const profile=document.createElement('a');profile.href='#/account/'+encodeURIComponent(Store.activeProfile.id);profile.textContent='Public Profile';nav.insertBefore(profile,nav.children[1]);}
   };
+  const wire=window.wireNavbar;
+  window.wireNavbar=function(){wire();const chip=document.getElementById('profileChipBtn'),menu=document.getElementById('profileMenu'),bell=document.getElementById('notifBtn'),notifications=document.getElementById('notifPanel');
+    chip.setAttribute('aria-label','Account menu');chip.setAttribute('aria-controls','profileMenu');bell.setAttribute('aria-controls','notifPanel');
+    function sync(){chip.setAttribute('aria-expanded',String(menu.classList.contains('open')));menu.inert=!menu.classList.contains('open');bell.setAttribute('aria-expanded',String(notifications.classList.contains('open')));notifications.inert=!notifications.classList.contains('open');}
+    const observer=new MutationObserver(sync);observer.observe(menu,{attributes:true,attributeFilter:['class']});observer.observe(notifications,{attributes:true,attributeFilter:['class']});sync();
+    function keys(event){if(event.key==='Escape'){const target=notifications.classList.contains('open')?bell:chip;if(!menu.classList.contains('open')&&!notifications.classList.contains('open'))return;menu.classList.remove('open');notifications.classList.remove('open');chip.classList.remove('open');sync();target.focus();event.preventDefault();}
+      else if(['ArrowDown','ArrowUp','Home','End'].includes(event.key)&&(menu.contains(document.activeElement)||document.activeElement===chip)){const items=[...menu.querySelectorAll('a,button')];if(!items.length)return;menu.classList.add('open');chip.classList.add('open');sync();const index=items.indexOf(document.activeElement),next=event.key==='Home'?0:event.key==='End'?items.length-1:event.key==='ArrowDown'?(index+1)%items.length:(index-1+items.length)%items.length;items[next].focus();event.preventDefault();}}
+    document.addEventListener('keydown',keys);window.addEventListener('hashchange',()=>{observer.disconnect();document.removeEventListener('keydown',keys);},{once:true});
+  };
 })();

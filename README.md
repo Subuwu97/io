@@ -31,7 +31,7 @@ I/O uses its own `io_session` cookie and `io.db` database. By default, settings 
 - Revised title/profile/settings layouts and private administrator service setup; the public address can be configured later.
 - I/O login with saved light/indigo/black themes, original mascot artwork, coral play/book mark and responsive navigation.
 
-See [0.3 release and service setup](docs/RELEASE-0.3.0.md), [reference comparison](docs/SERIKA-PARITY.md) and [installation details](docs/INSTALLATION.md). Email delivery and Discord require your own server-side configuration.
+See [0.3.1 refinements and testing](docs/RELEASE-0.3.1.md), [service setup](docs/RELEASE-0.3.0.md), [reference comparison](docs/SERIKA-PARITY.md) and [installation details](docs/INSTALLATION.md). Email delivery and Discord require your own server-side configuration.
 
 ## Development
 

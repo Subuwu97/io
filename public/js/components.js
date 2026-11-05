@@ -341,10 +341,12 @@ function animeCardHTML(show, opts = {}) {
   const wide = show.banner || show.cover || '/img/placeholder-banner.svg';
   const img = opts.tall ? cover : wide;
   const progress = opts.progressPct;
+  const cardTag = typeof progress === 'number' ? 'div' : 'a';
+  const cardLink = cardTag === 'a' ? `href="#/title/${show.id}"` : 'role="link" tabindex="0"';
   const bookmarked = typeof Store !== 'undefined' && Store.activeProfile && Store.isInMyList(show.id, 'anime');
   const mainStudio = (show.studios && show.studios[0]) || null;
   return `
-  <div class="card ${opts.tall ? 'poster-card' : ''}" data-nav="#/title/${show.id}">
+  <${cardTag} class="card io-media-card ${opts.tall ? 'poster-card' : ''}" ${cardLink} data-nav="#/title/${show.id}">
     <img class="thumb ${opts.tall ? 'thumb-tall' : ''}" src="${img}" alt="${escapeHtml(show.title)}" loading="lazy"/>
     ${opts.tag ? `<div class="card-tag">${escapeHtml(opts.tag)}</div>` : ''}
     ${isRecentlyAdded(show.dateAdded) ? '<div class="card-new-badge">NEW</div>' : ''}
@@ -355,15 +357,17 @@ function animeCardHTML(show, opts = {}) {
       <div class="card-title">${escapeHtml(show.title)}</div>
       <div class="card-sub">${show.episodeCount} episode${show.episodeCount === 1 ? '' : 's'}${show.year ? ' &middot; ' + show.year : ''}${mainStudio ? ' &middot; ' + escapeHtml(mainStudio) : ''}</div>
     </div>
-  </div>`;
+  </${cardTag}>`;
 }
 
 function mangaCardHTML(m, opts = {}) {
   const cover = m.cover || '/img/placeholder-poster.svg';
   const bookmarked = typeof Store !== 'undefined' && Store.activeProfile && Store.isInMyList(m.id, 'manga');
   const progress = opts.progressPct;
+  const cardTag = typeof progress === 'number' ? 'div' : 'a';
+  const cardLink = cardTag === 'a' ? `href="#/manga/${m.id}"` : 'role="link" tabindex="0"';
   return `
-  <div class="card poster-card" data-nav="#/manga/${m.id}">
+  <${cardTag} class="card io-media-card poster-card" ${cardLink} data-nav="#/manga/${m.id}">
     <img class="thumb thumb-tall" src="${cover}" alt="${escapeHtml(m.title)}" loading="lazy"/>
     ${isRecentlyAdded(m.dateAdded) ? '<div class="card-new-badge">NEW</div>' : ''}
     ${bookmarked ? '<div class="card-bookmark" title="In My List">&#128278;</div>' : ''}
@@ -372,12 +376,13 @@ function mangaCardHTML(m, opts = {}) {
       <div class="card-title">${escapeHtml(m.title)}</div>
       <div class="card-sub">${m.chapterCount} chapter${m.chapterCount === 1 ? '' : 's'}</div>
     </div>
-  </div>`;
+  </${cardTag}>`;
 }
 
 function wireCardNav(container) {
   container.querySelectorAll('[data-nav]').forEach(node => {
     node.addEventListener('click', () => { location.hash = node.getAttribute('data-nav'); });
+    if(node.tagName!=='A')node.addEventListener('keydown',event=>{if(event.target===node&&event.key==='Enter'){event.preventDefault();location.hash=node.getAttribute('data-nav');}});
   });
 }
 
