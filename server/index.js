@@ -67,7 +67,7 @@ const BUILTIN_AVATARS_DIR = path.join(BASE_DIR, 'public', 'img', 'avatars');
 // way. Used both for the startup banner and the JS/CSS cache-busting
 // query param below, so they can never drift out of sync with each
 // other.
-const BUILD_VERSION = 'io-0.4.0-library-reader-2026-11-05';
+const BUILD_VERSION = 'io-0.5.0-community-integrations-2026-11-05';
 const CONFIG_PATH = path.join(DATA_DIR, 'config.json');
 const SESSION_COOKIE = 'io_session';
 const SESSION_MAX_AGE_SEC = 30 * 24 * 60 * 60; // 30 days
@@ -457,6 +457,16 @@ const services = require('./services').createServices(DATA_DIR);
 require('./identity').registerIdentity(app, { db, accounts: accountsStore, services, requireAuth, setSessionCookie, getConfig: () => config });
 require('./live-tv').registerLive(app, { db, requireAuth, getLibrary: () => library, getStreamInfo });
 require('./library-actions').registerLibraryActions(app, { db, requireAuth, getLibrary: () => library, publicOrigin: () => services.get().publicUrl });
+require('./public-profiles').registerPublicProfiles(app, { db, requireAuth, getLibrary: () => library, publicOrigin: () => services.get().publicUrl });
+require('./passkeys').registerPasskeys(app, { db, requireAuth, accounts: accountsStore, services, setSessionCookie });
+require('./experience').registerExperience(app, { db, requireAuth, publicOrigin: () => services.get().publicUrl });
+require('./account-data').registerAccountData(app, { db, requireAuth, accounts: accountsStore, publicOrigin: () => services.get().publicUrl });
+require('./tv-devices').registerTVDevices(app, { db, requireAuth, publicOrigin: () => services.get().publicUrl });
+require('./discovery-plus').registerDiscoveryPlus(app, { db, requireAuth, getLibrary: () => library, publicOrigin: () => services.get().publicUrl });
+const integrationSecrets = require('./private-settings').createPrivateSettings(DATA_DIR);
+require('./trackers').registerTrackers(app, { db, requireAuth, accounts: accountsStore, services, secrets: integrationSecrets, getLibrary: () => library });
+const notificationDelivery = require('./notification-delivery').registerNotificationDelivery(app, { db, requireAuth, services, secrets: integrationSecrets, notifications, getLibrary: () => library });
+require('./watch-activity').registerWatchActivity(app, { db, requireAuth, services, getLibrary: () => library });
 require('./episode-discussions')(app, { db, requireAuth, getShow: id => require('./library-actions').discussionContent(library,id) });
 
 // ================== AUTH ROUTES ==================
@@ -1447,6 +1457,7 @@ let enrichmentRunning = false;
 // Picks, or has watch progress on). Silent on the very first scan ever,
 // so a fresh library doesn't fire a notification for everything in it.
 function checkAndNotifyNewEpisodes() {
+  notificationDelivery.checkSeasons();
   const changed = [
     ...episodeTracker.checkForNewEpisodes(
       library.cache.anime.map((s) => ({ id: s.id, title: s.title, episodeCount: s.episodeCount })), 'anime'),
@@ -1464,7 +1475,8 @@ function checkAndNotifyNewEpisodes() {
           message: `${item.addedCount} new ${item.addedCount === 1 ? 'episode/chapter is' : 'episodes/chapters are'} now available.`,
           createdBy: null,
           profileId,
-          link: `#/title/${item.id}`,
+          category:'episodes',
+          link: `#/${item.itemType==='manga'?'manga':'title'}/${item.id}`,
         });
       } catch (e) {
         console.log(`[episode-tracker] failed to post notification for "${item.title}": ${e.message}`);
