@@ -26,7 +26,7 @@ function readConfig() {
 
 function getServerUrl() {
   const cfg = readConfig();
-  const port = cfg.port || 4821;
+  const port = cfg.port || 5921;
   const httpsOn = !!(cfg.https && cfg.https.certPath && cfg.https.keyPath && fs.existsSync(cfg.https.certPath) && fs.existsSync(cfg.https.keyPath));
   return `${httpsOn ? 'https' : 'http'}://localhost:${port}`;
 }

@@ -2,6 +2,10 @@
 
 This release implements the next feature batch from the Serika comparison. Exact Serika parity is not certified. External integrations remain optional; no owner credentials, public address or media are bundled.
 
+I/O now defaults to port **5921**, independently of Minami's 4820. Existing installations retain their saved port unless changed in configuration; the inspection instance has been moved to 5921. Launchers and installation instructions use the new default.
+
+The built-in profile picture collection includes 70 distinct user-supplied images from 75 selected files (five identical duplicates were consolidated), alongside the original eight icons. The profile editor now loads shipped pictures as well as custom uploads, with search, lazy-loaded thumbnails, accessible selection labels and a bounded scrolling grid. Original image bytes are preserved; JFIF images use the browser-compatible .jpg extension. The files are shipped with I/O, so the shared source folder is not needed at runtime.
+
 ## Public profiles, discovery and privacy
 
 Each household profile can choose a unique username and private, unlisted or public member visibility. Profiles are private initially; discovery requires a separate opt-in. Kids profiles cannot publish. Independent section controls cover My List/statuses, favorite titles/characters, reviews, aggregate statistics and HTTPS social links. Mature titles are excluded. The API returns an allowlisted projection, never household/account identifiers, playback positions, PINs, email or credentials. Community profile URLs require I/O sign-in; they are not anonymous public web pages.

@@ -73,7 +73,7 @@ Fix that and run this script again."
 fi
 
 echo "Starting server..."
-echo "Once it's running, open http://localhost:4821 in your browser."
+echo "Once it's running, open http://localhost:5921 in your browser."
 echo "Press Ctrl+C in this window to stop the server."
 echo ""
 

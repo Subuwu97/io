@@ -85,7 +85,7 @@ if not exist node_modules (
 )
 
 echo Starting server...
-echo Once it's running, open http://localhost:4821 in your browser.
+echo Once it's running, open http://localhost:5921 in your browser.
 echo Close this window to stop the server.
 echo Everything printed here is also being saved to server-log.txt in
 echo this folder - open that file any time for the complete log,

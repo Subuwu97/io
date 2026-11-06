@@ -13,9 +13,9 @@ npm ci
 npm start
 ```
 
-Open **http://localhost:4821** and create the first administrator account. Install FFmpeg and FFprobe for transcoding, audio tracks, styled subtitles and thumbnails. Add your own media folders in Settings.
+Open **http://localhost:5921** and create the first administrator account. Install FFmpeg and FFprobe for transcoding, audio tracks, styled subtitles and thumbnails. Add your own media folders in Settings.
 
-I/O uses its own `io_session` cookie and `io.db` database. By default, settings and accounts live in this installation's ignored `data/` directory. Set `IO_DATA_DIR` to an absolute directory for durable storage outside the checkout. Minami settings and accounts are not imported automatically. I/O defaults to port 4821 so it can run alongside Minami on 4820.
+I/O uses its own `io_session` cookie and `io.db` database. By default, settings and accounts live in this installation's ignored `data/` directory. Set `IO_DATA_DIR` to an absolute directory for durable storage outside the checkout. Minami settings and accounts are not imported automatically. I/O defaults to port 5921 so it can run alongside Minami on 4820.
 
 ## Available
 

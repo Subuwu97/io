@@ -243,3 +243,4 @@
   background: #0004;
   border-radius: 4px;
 }
+.avatar-grid{max-height:360px;overflow-y:auto;padding:4px;overscroll-behavior:contain}.avatar-grid button{aspect-ratio:1;min-width:0}.avatar-grid button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}.avatar-count{color:var(--text-faint);font-size:12px;margin:8px 0}.avatar-grid img{display:block}.avatar-grid img[src$="/anime-1.png"],.avatar-grid img[src$="/anime-2.png"],.avatar-grid img[src$="/anime.png"]{object-position:left center}

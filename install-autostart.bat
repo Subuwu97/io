@@ -111,7 +111,7 @@ echo ================================================
 echo  I/O will now start automatically on boot.
 echo ================================================
 echo.
-echo It should already be running - check http://localhost:4821
+echo It should already be running - check http://localhost:5921
 echo (the autostart.log file in this folder shows its output if not).
 echo.
 echo Useful commands (from an Administrator prompt):
