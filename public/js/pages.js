@@ -2590,7 +2590,7 @@ async function pageMangaDetail(root, id) {
       <div class="episode-num">${i + 1}</div>
       <div class="episode-info">
         <div class="episode-title">${escapeHtml(c.name)}${badge}</div>
-        <div class="episode-file">${pdfBlocked ? 'Page-by-page reading needs poppler-utils installed - click to open the raw PDF instead' : `${c.pageCount} pages`}</div>
+        <div class="episode-file">${pdfBlocked ? 'Page-by-page reading needs poppler-utils installed - click to open the raw PDF instead' : `${c.pageCount} ${c.format === 'novel' ? 'sections' : 'pages'}`}</div>
       </div>
       ${pdfBlocked
         ? `<a class="play-circle" href="/api/manga/${manga.id}/pdf/${encodeURIComponent(c.name)}" target="_blank" rel="noopener" title="Open PDF in a new tab">&#128196;</a>`
