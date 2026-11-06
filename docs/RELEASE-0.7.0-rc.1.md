@@ -8,7 +8,7 @@ This candidate includes the previously local tracker improvements and custom hom
 - EPUB 3 navigation and EPUB 2 NCX labels linked to existing text sections, plus private location bookmarks, selected quotes and notes. Notes are included in personal exports and reviewed restore, with ownership and limits enforced.
 - TV quality and audio choices for Android/Google/Fire TV, Roku and Apple TV source. Android debug build and Roku static validation/package checks pass. Apple TV source still requires compilation on a Mac. Native subtitles, live TV, watch parties and browser-to-native remote mirroring remain incomplete.
 - More Spanish/French/Japanese reader and settings strings. Full interface/native localization and language review remain incomplete.
-- A minimal `/healthz` endpoint, optional non-root container definition and isolated Compose setup, plus [production acceptance steps](PRODUCTION-TESTING.md). Docker is unavailable on the development machine, so the container must be built on the target host before use.
+- A minimal `/healthz` endpoint, `npm run healthcheck`, and direct Node/npm installation and [production acceptance steps](PRODUCTION-TESTING.md) for Windows and Linux/macOS.
 
 Validation: 77 automated server/browser-unit checks pass on the development machine, including tracker conflicts, season boundaries, reader note ownership and restore, passkey verification, privacy, native device revocation and backup recovery. An automated Windows/Linux workflow is included; its remote result must be checked after publication. Real external providers and physical devices are not represented by these tests.
 
