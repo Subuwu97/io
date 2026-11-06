@@ -170,14 +170,14 @@ You'll see:
 ```
 ================================================
  I/O is running
- http://localhost:4821
+ http://localhost:5921
  Anime titles found: X
  Manga titles found: Y
 ================================================
 ```
 
-Open **http://localhost:4821** in your browser. To use it from another
-device on your home network, visit `http://<your-computer's-LAN-IP>:4821`
+Open **http://localhost:5921** in your browser. To use it from another
+device on your home network, visit `http://<your-computer's-LAN-IP>:5921`
 instead of localhost.
 
 To stop the server, press `Ctrl+C` in the terminal.
@@ -1597,7 +1597,7 @@ button shows "Play Theme" instead of just silently doing nothing.
   files in there (any name) and reference them, or replace the existing
   ones, to fully personalize the look.
 - **Port:** change `"port"` in `config.json`, or set the `PORT`
-  environment variable when starting the server (default `4821`).
+  environment variable when starting the server (default `5921`).
 - **Per-title metadata:** add an `info.json` next to any show/manga folder
   to set a custom title, description, tagline, year, rating, and genres
   (see the `README.txt` files inside `media/anime` and `media/manga`),
@@ -1945,7 +1945,7 @@ things are worth knowing about:
   built-in scrypt) and simple server-side sessions — there's no email
   verification or password reset flow, since this is meant for a small
   trusted household, not the public internet. This is designed for
-  personal/local use on a trusted network; don't expose port 4821
+  personal/local use on a trusted network; don't expose port 5921
   directly to the public internet without adding a proper auth layer.
 - The MyAnimeList Client ID only enables read-only lookups (search,
   poster/synopsis/genre fetch) — it never posts to your MAL account and
