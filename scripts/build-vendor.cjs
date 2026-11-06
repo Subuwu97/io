@@ -3,6 +3,9 @@ const path = require('node:path');
 const esbuild = require('esbuild');
 (async () => {
   const target = path.resolve(__dirname, '../public/vendor'); fs.mkdirSync(target, { recursive: true });
+  const passkeyDir=path.resolve(__dirname,'../node_modules/@simplewebauthn/browser');
+  fs.copyFileSync(path.join(passkeyDir,'dist/bundle/index.umd.min.js'),path.join(target,'simplewebauthn.js'));
+  fs.copyFileSync(path.join(passkeyDir,'LICENSE.md'),path.join(target,'simplewebauthn-LICENSE.md'));
   fs.copyFileSync(require.resolve('hls.js/dist/hls.min.js'), path.join(target, 'hls.min.js'));
   const source = path.dirname(require.resolve('jassub'));
   fs.cpSync(source, path.join(target, 'jassub'), { recursive: true, filter: file => !file.endsWith('.map') && !file.endsWith('.d.ts') });

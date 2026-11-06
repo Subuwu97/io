@@ -3,8 +3,8 @@ function ioCommentHTML(comment, rootId) {
   const canDelete = Store.account && (own || Store.account.role === 'admin');
   const id = escapeHtml(comment.id);
   const body = comment.deletedAt ? '<p class="io-muted">This comment was deleted. Replies remain below.</p>'
-    : comment.spoiler ? `<details class="io-spoiler" data-spoiler="${id}"><summary>Spoiler — reveal comment</summary><p>${escapeHtml(comment.text)}</p></details>`
-    : `<p>${escapeHtml(comment.text)}</p>`;
+    : comment.spoiler ? `<details class="io-spoiler" data-spoiler="${id}"><summary>Spoiler — reveal comment</summary><p>${ioRichComment(comment.text)}</p></details>`
+    : `<p>${ioRichComment(comment.text)}</p>`;
   return `<article class="io-discussion ${comment.parentId ? 'io-reply' : ''}" data-comment-id="${id}">
     <header><strong>${escapeHtml(comment.username)}</strong><time datetime="${escapeHtml(comment.createdAt)}">${escapeHtml(new Date(comment.createdAt).toLocaleString())}</time></header>
     ${body}${comment.deletedAt ? '' : `<div class="io-comment-actions">

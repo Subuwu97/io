@@ -1,5 +1,7 @@
 # Serika reference comparison
 
+The table below records the comparison before the 0.5.0 feature batch. See [0.5.0 implementation and limits](RELEASE-0.5.0.md) and [the current backlog](FEATURE-GAPS.md) for updated public profiles, passkeys, tracker sync, preferences, notifications, TV remotes, account data and book details.
+
 Reference inspected: signed-in Serika browse, watch, title, profile, settings, Live TV, discovery, New & Popular and manga reader pages on November 5, 2026. I/O keeps Minami's server and local-library model. The deeper audit found gaps missed by the initial comparison; [FEATURE-GAPS.md](FEATURE-GAPS.md) is the current functional backlog. Exact visual and service parity is not certified.
 
 | Area | Current I/O state | Remaining parity work |

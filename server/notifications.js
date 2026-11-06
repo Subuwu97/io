@@ -7,6 +7,7 @@
 // not everyone on the server.
 const crypto = require('crypto');
 const { db } = require('./db');
+let deliveryHook=null;
 
 function listForProfile(profileId, limit = 50) {
   const rows = db.prepare(`
@@ -25,6 +26,7 @@ function listForProfile(profileId, limit = 50) {
     read: !!r.read_at,
     targeted: !!r.profile_id, // lets the frontend allow the owning profile to dismiss it, not just an admin
     link: r.link || null,
+    category:r.category||'announcements',
   }));
 }
 
@@ -37,7 +39,7 @@ function unreadCount(profileId) {
   return row.n;
 }
 
-function create({ title, message, createdBy, profileId = null, link = null }) {
+function create({ title, message, createdBy, profileId = null, link = null, category='announcements' }) {
   const trimmedTitle = (title || '').trim();
   if (!trimmedTitle) throw new Error('Title is required');
   if (trimmedTitle.length > 120) throw new Error('Title is too long (max 120 characters)');
@@ -46,7 +48,10 @@ function create({ title, message, createdBy, profileId = null, link = null }) {
   const createdAt = new Date().toISOString();
   db.prepare('INSERT INTO notifications (id, title, message, created_by, created_at, profile_id, link) VALUES (?, ?, ?, ?, ?, ?, ?)')
     .run(id, trimmedTitle, trimmedMessage, createdBy, createdAt, profileId, link);
-  return { id, title: trimmedTitle, message: trimmedMessage, createdAt, read: false, targeted: !!profileId, link };
+  if(!['episodes','seasons','upcoming','announcements'].includes(category))category='announcements';
+  db.prepare('UPDATE notifications SET category=? WHERE id=?').run(category,id);
+  const notification={ id, title: trimmedTitle, message: trimmedMessage, createdAt, read: false, targeted: !!profileId, profileId, link,category };
+  deliveryHook?.(notification);return notification;
 }
 
 // A profile can remove its own targeted notification (a personal new-
@@ -77,4 +82,4 @@ function markAllRead(profileId) {
   for (const row of unread) stmt.run(profileId, row.id, now);
 }
 
-module.exports = { listForProfile, unreadCount, create, remove, removeOwnTargeted, markRead, markAllRead };
+module.exports = { listForProfile, unreadCount, create, remove, removeOwnTargeted, markRead, markAllRead,setDeliveryHook:fn=>{deliveryHook=fn;} };

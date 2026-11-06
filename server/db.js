@@ -290,6 +290,7 @@ addColumnIfMissing('profiles', 'preferred_subtitle_lang', 'TEXT');
 // alerts without introducing a second, separate notification system.
 addColumnIfMissing('notifications', 'profile_id', 'TEXT');
 addColumnIfMissing('notifications', 'link', 'TEXT');
+addColumnIfMissing('notifications', 'category', "TEXT NOT NULL DEFAULT 'announcements'");
 
 // Returns the recorded first-seen timestamp for an item, or - the
 // Returns the recorded first-seen timestamp for an item, or - the

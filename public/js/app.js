@@ -52,6 +52,9 @@ async function renderApp() {
   window.scrollTo(0, 0);
 
   try {
+    const experienceRoute=location.hash;
+    if(Store.activeProfile)await ioLoadExperience();
+    if(location.hash!==experienceRoute)return;
     if (parts.length === 0) {
       await pageHome(appRoot);
     } else if (parts[0] === 'live') {
@@ -68,6 +71,24 @@ async function renderApp() {
       await ioPageRequests(appRoot);
     } else if (parts[0] === 'library-queue') {
       await ioPageRequests(appRoot,true);
+    } else if (parts[0] === 'watch-activity') {
+      await ioPageActivity(appRoot);
+    } else if (parts[0] === 'notification-delivery') {
+      await ioPageDelivery(appRoot);
+    } else if (parts[0] === 'trackers') {
+      await ioPageTrackers(appRoot);
+    } else if (parts[0] === 'tv-devices') {
+      await ioPageTVDevices(appRoot);
+    } else if (parts[0] === 'account-data') {
+      await ioPageAccountData(appRoot);
+    } else if (parts[0] === 'experience' || parts[0] === 'onboarding') {
+      await ioPageExperience(appRoot,parts[0] === 'onboarding');
+    } else if (parts[0] === 'passkeys') {
+      await ioPagePasskeys(appRoot);
+    } else if (parts[0] === 'people') {
+      await ioPagePeople(appRoot, parts[1]);
+    } else if (parts[0] === 'public-profile') {
+      await ioPagePublicProfile(appRoot);
     } else if (parts[0] === 'series') {
       await pageGrid(appRoot, 'series');
     } else if (parts[0] === 'movies') {
@@ -75,7 +96,9 @@ async function renderApp() {
     } else if (parts[0] === 'books') {
       await pageGrid(appRoot, 'books');
     } else if (parts[0] === 'new') {
-      await pageGrid(appRoot, 'new');
+      await ioPageNewPopular(appRoot);
+    } else if (parts[0] === 'upcoming-manage') {
+      await ioPageUpcoming(appRoot);
     } else if (parts[0] === 'title' && parts[1]) {
       await pageDetail(appRoot, parts[1]);
     } else if (parts[0] === 'manga' && parts[1]) {
@@ -118,6 +141,7 @@ async function renderApp() {
     } else {
       await pageHome(appRoot);
     }
+    ioTVStart();
   } catch (err) {
     console.error(err);
     // If our session expired/was revoked mid-use, bounce back to login

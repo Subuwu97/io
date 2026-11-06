@@ -33,7 +33,11 @@ I/O uses its own `io_session` cookie and `io.db` database. By default, settings 
 - Single/double-page and webtoon reading, direction/zoom/fit preferences, a page slider and chapter discussions.
 - I/O login with saved light/indigo/black themes, original mascot artwork, coral play/book mark and responsive navigation.
 
-See [0.4.0 features and validation](docs/RELEASE-0.4.0.md), [remaining feature gaps](docs/FEATURE-GAPS.md), [service setup](docs/RELEASE-0.3.0.md) and [installation details](docs/INSTALLATION.md). Email delivery and Discord require your own server-side configuration.
+- Opt-in member profiles/discovery/privacy, passkeys, taste onboarding and expanded playback/subtitle preferences.
+- Previewed personal MAL/AniList sync, categorized notification delivery and an optional Discord desktop activity companion.
+- Registered TV browsers/remotes, personal ZIP export/deletion, local Top 10/upcoming discovery, manga volumes and formatted comments.
+
+See [0.5.0 features, setup, limits and validation](docs/RELEASE-0.5.0.md), [remaining feature gaps](docs/FEATURE-GAPS.md), [service setup](docs/RELEASE-0.3.0.md) and [installation details](docs/INSTALLATION.md). External services require your own private configuration. Full interface translation, unattended tracker sync and native TV clients remain partial or pending.
 
 ## Development
 

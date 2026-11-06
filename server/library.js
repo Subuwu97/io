@@ -337,6 +337,9 @@ class Library {
       shows.push({
         id: slugify(showName),
         title: info.title || showName,
+        titles:info.titles||{},
+        audioLanguages:Array.isArray(info.audioLanguages)?info.audioLanguages:[],
+        subtitleLanguages:Array.isArray(info.subtitleLanguages)?info.subtitleLanguages:[],
         description: info.description || '',
         year: info.year || null,
         rating: info.rating || '16+',
@@ -493,6 +496,8 @@ class Library {
       titles.push({
         id: mangaId,
         title: info.title || titleName,
+        titles:info.titles||{},
+        author:info.author||'',artist:info.artist||'',publisher:info.publisher||'',publicationStatus:info.publicationStatus||'',language:info.language||'',volumes:Array.isArray(info.volumes)?info.volumes:[],
         description: info.description || '',
         year: info.year || null,
         rating: info.rating || null,

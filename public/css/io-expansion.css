@@ -1,0 +1,245 @@
+.io-people-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
+  gap: 16px;
+  margin: 24px 0;
+}
+.io-person-card {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 20px;
+  background: var(--bg-card, #202027);
+  border: 1px solid #ffffff20;
+  border-radius: 14px;
+  color: inherit;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.io-person-card img,
+.io-person-heading img {
+  border-radius: 50%;
+}
+.io-person-card span {
+  opacity: 0.6;
+}
+.io-person-card p {
+  white-space: pre-wrap;
+}
+.io-person-heading {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-top: 24px;
+}
+.io-person-heading h2 {
+  margin: 0;
+}
+.io-person-title {
+  display: block;
+  padding: 10px 0;
+}
+.io-person-bio,
+.io-people-review p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.io-settings-card fieldset {
+  border: 1px solid #ffffff20;
+  border-radius: 10px;
+  padding: 16px;
+  margin: 20px 0;
+}
+.io-settings-card label:not(.io-checkbox-row) {
+  display: grid;
+  gap: 8px;
+  margin: 14px 0;
+}
+.io-settings-card input:not([type="checkbox"]):not([type="range"]),
+.io-settings-card select,
+.io-settings-card textarea {
+  max-width: 100%;
+  min-width: 0;
+  padding: 10px;
+  background: #16161e;
+  color: #eee;
+  border: 1px solid #ffffff30;
+  border-radius: 7px;
+}
+.io-settings-card textarea {
+  min-height: 90px;
+}
+.io-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0;
+}
+.io-person-card:focus-visible {
+  outline: 2px solid #ab97ff;
+  outline-offset: 3px;
+}
+.io-onboard-notice {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin: 24px 4vw;
+  padding: 24px;
+  border: 1px solid #ab97ff55;
+  border-radius: 16px;
+  background: #8471db16;
+}
+.io-mature-blur img {
+  filter: blur(18px);
+  transition: filter 0.2s;
+}
+.io-mature-blur:hover img,
+.io-mature-blur:focus-within img,
+.io-mature-blur:focus img {
+  filter: none;
+}
+.io-popular-hero {
+  padding: 72px 5vw;
+  background:
+    radial-gradient(ellipse at top right, #6355ac55, transparent 65%), #17151f;
+}
+.io-popular-hero h1 {
+  font-size: clamp(36px, 6vw, 72px);
+  margin: 12px 0;
+}
+.io-popular-hero > span {
+  letter-spacing: 0.2em;
+  color: #b5a2ff;
+}
+.io-popular-section {
+  padding: 24px 5vw;
+}
+.io-popular-section h2 {
+  margin-bottom: 12px;
+}
+.io-popular-cards {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding: 10px 0 24px;
+}
+.io-popular-cards > .card {
+  flex: 0 0 192px;
+}
+.io-ranked-card {
+  display: flex;
+  align-items: flex-end;
+  flex: 0 0 230px;
+  position: relative;
+}
+.io-ranked-card > .card {
+  width: 170px;
+  flex: none;
+}
+.io-rank {
+  font-size: 100px;
+  font-weight: 900;
+  line-height: 1;
+  color: #15131e;
+  -webkit-text-stroke: 2px #b3a1ef;
+  margin-right: -12px;
+  z-index: 1;
+}
+.io-book-metadata {
+  padding: 20px 0;
+}
+.io-book-metadata dl {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 30px;
+}
+.io-book-metadata dt {
+  color: #aaa;
+  font-size: 13px;
+}
+.io-book-metadata dd {
+  margin: 8px 0;
+}
+.io-volume {
+  border: 1px solid #ffffff20;
+  border-radius: 10px;
+  margin: 16px 0;
+  padding: 16px;
+}
+.io-volume summary {
+  cursor: pointer;
+  font-weight: 600;
+  padding: 8px;
+}
+.io-volume form {
+  display: grid;
+  gap: 12px;
+}
+.io-volume label {
+  display: grid;
+  gap: 8px;
+}
+.io-volume input,
+.io-volume textarea {
+  max-width: 100%;
+  background: #17151f;
+  color: #eee;
+  padding: 10px;
+  border: 1px solid #ffffff30;
+  border-radius: 7px;
+}
+.io-tv-device {
+  padding: 20px 0;
+  border-bottom: 1px solid #ffffff20;
+}
+@media (max-width: 500px) {
+  .io-popular-cards > .card {
+    flex-basis: 160px;
+  }
+  .io-popular-hero {
+    padding-top: 45px;
+  }
+}
+.io-notification-matrix {
+  overflow: auto;
+}
+.io-notification-matrix table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.io-notification-matrix th,
+.io-notification-matrix td {
+  padding: 14px 8px;
+  border-bottom: 1px solid #ffffff20;
+}
+.io-notification-matrix td {
+  text-align: center;
+}
+.io-notification-matrix th {
+  text-align: left;
+}
+.io-sync-plan {
+  padding: 20px;
+  background: #b39aff12;
+  border: 1px solid #b39aff66;
+  border-radius: 12px;
+  margin-top: 20px;
+}
+.io-rich-toolbar {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0;
+}
+.io-rich-toolbar button {
+  background: #272231;
+  color: #eee;
+  border: 1px solid #ffffff30;
+  border-radius: 6px;
+  padding: 7px 14px;
+}
+.io-discussion code {
+  padding: 2px 5px;
+  background: #0004;
+  border-radius: 4px;
+}
