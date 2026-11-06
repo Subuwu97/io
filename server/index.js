@@ -4062,7 +4062,7 @@ app.get('*', (req, res, next) => {
   res.end(renderVersionedIndexHtml());
 });
 
-const PORT = process.env.PORT || config.port || 4821;
+const PORT = process.env.PORT || config.port || 5921;
 // Starts either a plain HTTP server (default) or, when certificate and
 // key paths are configured, an HTTPS server using Node's built-in TLS -
 // no extra dependencies, and on any modern CPU the encryption overhead
