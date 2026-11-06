@@ -233,6 +233,8 @@ function teardownActiveHlsPlayer() {
 }
 
 function renderHero(shows) {
+  shows = [...shows];
+  if (typeof ioCustomHeroEntry !== 'undefined' && ioCustomHeroEntry?.enabled) shows.splice(Math.min(shows.length, ioCustomHeroEntry.position - 1), 0, { ...ioCustomHeroEntry, customHero: true });
   clearInterval(heroRotationTimer); // a previous visit to this page may have left one running
   const heroEl = document.getElementById('hero');
   if (!heroEl) return;
@@ -262,6 +264,13 @@ function renderHero(shows) {
   }
   function paint() {
     const s = shows[idx];
+    if(s.customHero){
+      mainEl.innerHTML='<div class="hero-bg"></div><div class="hero-content"><h1 class="hero-title">'+escapeHtml(s.title)+'</h1><p class="hero-desc">'+escapeHtml(s.description)+'</p></div>';
+      mainEl.querySelector('.hero-bg').style.backgroundImage='url("'+s.image+'")';
+      mainEl.querySelector('.hero-bg').setAttribute('role','img');
+      mainEl.querySelector('.hero-bg').setAttribute('aria-label',s.title||'Custom home banner');
+      return;
+    }
     const bg = s.banner || s.cover || '/img/placeholder-banner.svg';
     mainEl.innerHTML = `
       <div class="hero-bg" style="background-image:url('${bg}')"></div>

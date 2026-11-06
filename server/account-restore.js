@@ -22,6 +22,7 @@ function buildRestorePlan(data, sourceId, target, account, library, mode) {
     video: [],
     manga: [],
     novels: [],
+    notes: [],
     watched: [],
     skipped: 0,
   };
@@ -128,6 +129,33 @@ function buildRestorePlan(data, sourceId, target, account, library, mode) {
       });
     else plan.skipped++;
   }
+  for (const r of rows("novel_notes")) {
+    const book = allowed("manga", r.item_id),
+      chapter = book?.chapters?.find((c) => c.name === r.chapter);
+    if (
+      chapter?.format === "novel" &&
+      Number.isInteger(r.section) &&
+      r.section >= 0 &&
+      r.section < chapter.pageCount &&
+      Number.isFinite(r.fraction) &&
+      r.fraction >= 0 &&
+      r.fraction <= 1 &&
+      typeof r.quote === "string" &&
+      r.quote.length <= 2000 &&
+      typeof r.note === "string" &&
+      r.note.length <= 4000 &&
+      plan.notes.length < 2000
+    )
+      plan.notes.push({
+        id: r.item_id,
+        chapter: r.chapter,
+        section: r.section,
+        fraction: r.fraction,
+        quote: r.quote,
+        note: r.note,
+      });
+    else plan.skipped++;
+  }
   const novel = rows("novel_preferences")[0];
   if (
     novel &&
@@ -215,6 +243,38 @@ function applyRestorePlan(db, plan) {
         (k) => plan.novelPreferences[k],
       ),
     );
+  for (const r of plan.notes || []) {
+    const existing = db
+      .prepare(
+        "SELECT id FROM novel_notes WHERE profile_id=? AND item_id=? AND chapter=? AND section=? AND fraction=? AND quote=? AND note=?",
+      )
+      .get(
+        plan.targetId,
+        r.id,
+        r.chapter,
+        r.section,
+        r.fraction,
+        r.quote,
+        r.note,
+      );
+    if (
+      !existing &&
+      db
+        .prepare("SELECT count(*) AS n FROM novel_notes WHERE profile_id=?")
+        .get(plan.targetId).n < 2000
+    )
+      db.prepare("INSERT INTO novel_notes VALUES(?,?,?,?,?,?,?,?,?)").run(
+        randomUUID(),
+        plan.targetId,
+        r.id,
+        r.chapter,
+        r.section,
+        r.fraction,
+        r.quote,
+        r.note,
+        at,
+      );
+  }
   if (plan.reader)
     db.prepare(
       `INSERT INTO reader_preferences VALUES(?,?,?,?,?) ON CONFLICT(profile_id) ${replace ? "DO UPDATE SET layout=excluded.layout,direction=excluded.direction,fit=excluded.fit,zoom=excluded.zoom" : "DO NOTHING"}`,
@@ -289,9 +349,15 @@ function registerAccountRestore(
         sourceAccount: plan.sourceAccount,
         mode: plan.mode,
         counts: Object.fromEntries(
-          ["lists", "favorites", "video", "manga", "novels", "watched"].map(
-            (k) => [k, plan[k].length],
-          ),
+          [
+            "lists",
+            "favorites",
+            "video",
+            "manga",
+            "novels",
+            "notes",
+            "watched",
+          ].map((k) => [k, plan[k].length]),
         ),
         preferences: !!(
           plan.reader ||
@@ -326,11 +392,13 @@ function registerAccountRestore(
         "video",
         "manga",
         "novels",
+        "notes",
         "watched",
       ])
         for (const r of plan[key] || []) {
           const type =
-              r.type || (["manga", "novels"].includes(key) ? "manga" : "anime"),
+              r.type ||
+              (["manga", "novels", "notes"].includes(key) ? "manga" : "anime"),
             item =
               type === "manga"
                 ? getLibrary().getManga(r.id)
@@ -348,11 +416,11 @@ function registerAccountRestore(
             )
           )
             throw Error("Episodes changed; preview again");
-          if (["manga", "novels"].includes(key)) {
+          if (["manga", "novels", "notes"].includes(key)) {
             const c = item.chapters?.find((c) => c.name === r.chapter);
             if (
               !c ||
-              (key === "novels" &&
+              (["novels", "notes"].includes(key) &&
                 (c.format !== "novel" || r.section >= c.pageCount)) ||
               (key === "manga" && c.pageCount && r.page > c.pageCount)
             )

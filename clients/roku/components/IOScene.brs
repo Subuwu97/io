@@ -1,4 +1,5 @@
 sub init()
+    m.connectionId = 0
     m.top.backgroundColor = "0x111018FF"
     m.status = m.top.findNode("status")
     m.list = m.top.findNode("list")
@@ -12,6 +13,7 @@ sub init()
     m.registry = CreateObject("roRegistrySection", "IOTV")
     m.server = m.registry.Read("server")
     m.token = m.registry.Read("token")
+    if m.registry.Read("tokenServer") <> m.server then m.token = ""
     m.rows = []
     m.offset = 0
     if m.server = "" then setup() else if m.token = "" then pair() else catalog(0)
@@ -45,10 +47,12 @@ sub serverEntered(event)
             return
         end if
         if Right(address, 1) = "/" then address = Left(address, Len(address) - 1)
+        m.connectionId = m.connectionId + 1
         m.server = address
         m.token = ""
         m.registry.Write("server", m.server)
         m.registry.Delete("token")
+        m.registry.Delete("tokenServer")
         m.registry.Flush()
         dialog.close = true
         pair()
@@ -62,17 +66,22 @@ sub api(path, method, body, action)
     task.method = method
     task.body = body
     task.token = m.token
-    task.addFields({action: action})
+    task.addFields({action: action, generation: m.connectionId})
     task.observeField("response", "response")
     m.top.appendChild(task)
     task.control = "RUN"
 end sub
 sub pair()
+    m.connectionId = m.connectionId + 1
+    m.poll.control = "STOP"
+    m.code = ""
+    m.secret = ""
     m.status.text = "Requesting a pairing code…"
     showRows([{title: "Change server", action: "server"}, {title: "Get a new code", action: "pair"}])
     api("/api/tv-native/pair/start", "POST", {name: "Roku TV"}, "pair")
 end sub
 sub pollPair()
+    if m.code = "" then return
     api("/api/tv-native/pair/poll", "POST", {code: m.code, pollSecret: m.secret}, "poll")
 end sub
 sub catalog(offset)
@@ -85,6 +94,7 @@ sub response(event)
     data = event.getData()
     action = task.action
     m.top.removeChild(task)
+    if task.generation <> m.connectionId then return
     if data.error <> invalid
         m.status.text = data.error
         return
@@ -98,6 +108,7 @@ sub response(event)
         if data.status = "approved"
             m.token = data.token
             m.registry.Write("token", m.token)
+            m.registry.Write("tokenServer", m.server)
             m.registry.Flush()
             catalog(0)
         else if data.status = "pending"
@@ -127,6 +138,13 @@ sub response(event)
             end if
             rows.Push({title: episode.group + " · " + episode.title, path: episode.path, action: "play", offset: resume})
         end for
+        showRows(rows)
+    else if action = "options"
+        rows = []
+        for each quality in data.qualities
+            rows.Push({title: "Quality: " + quality, action: "quality", quality: quality})
+        end for
+        m.audioOptions = data.audio
         showRows(rows)
     else if action = "play"
         agent = CreateObject("roHttpAgent")
@@ -158,7 +176,18 @@ sub selected()
         api("/api/tv-native/title/" + row.id, "GET", {}, "title")
     else if row.action = "play"
         m.episode = row.path
-        api("/api/tv-native/play", "POST", {id: m.titleId, episode: row.path, offset: row.offset, quality: "720"}, "play")
+        m.resumeOffset = row.offset
+        escape = CreateObject("roUrlTransfer")
+        api("/api/tv-native/playback-options?id=" + escape.Escape(m.titleId) + "&episode=" + escape.Escape(row.path), "GET", {}, "options")
+    else if row.action = "quality"
+        m.quality = row.quality
+        rows = [{title: "Default audio", action: "audio", audio: invalid}]
+        for each track in m.audioOptions
+            rows.Push({title: track.language + " · " + track.title, action: "audio", audio: track.index})
+        end for
+        showRows(rows)
+    else if row.action = "audio"
+        api("/api/tv-native/play", "POST", {id: m.titleId, episode: m.episode, offset: m.resumeOffset, quality: m.quality, audio: row.audio}, "play")
     end if
 end sub
 sub saveProgress()

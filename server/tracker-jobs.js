@@ -9,7 +9,7 @@ const remoteStatuses = {
   DROPPED: "dropped",
   REPEATING: "in_progress",
 };
-const equal = (a, b) => a?.status === b?.status && a?.count === b?.count;
+const equal = (a, b) => a?.status === b?.status && a?.count === b?.count && a?.specialStatus === b?.specialStatus;
 function registerTrackerJobs(
   app,
   {
@@ -29,6 +29,8 @@ function registerTrackerJobs(
   db.exec(
     `CREATE TABLE IF NOT EXISTS tracker_jobs(id TEXT PRIMARY KEY,account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,profile_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,provider TEXT NOT NULL,direction TEXT NOT NULL,status TEXT NOT NULL,value TEXT NOT NULL,created_at INTEGER NOT NULL,updated_at INTEGER NOT NULL,error TEXT NOT NULL DEFAULT '');CREATE TABLE IF NOT EXISTS tracker_automation(profile_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,provider TEXT NOT NULL,enabled INTEGER NOT NULL DEFAULT 0,last_at INTEGER NOT NULL DEFAULT 0,cursor INTEGER NOT NULL DEFAULT 0,message TEXT NOT NULL DEFAULT '',PRIMARY KEY(profile_id,provider));CREATE TABLE IF NOT EXISTS tracker_baselines(profile_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,provider TEXT NOT NULL,item_type TEXT NOT NULL,item_id TEXT NOT NULL,value TEXT NOT NULL,PRIMARY KEY(profile_id,provider,item_type,item_id));`,
   );
+  db.exec('CREATE TABLE IF NOT EXISTS tracker_title_details(profile_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,provider TEXT NOT NULL,item_type TEXT NOT NULL,item_id TEXT NOT NULL,value TEXT NOT NULL,PRIMARY KEY(profile_id,provider,item_type,item_id))');
+  if(!db.prepare('PRAGMA table_info(tracker_automation)').all().some(c=>c.name==='direction'))db.exec("ALTER TABLE tracker_automation ADD COLUMN direction TEXT NOT NULL DEFAULT 'push'");
   db.prepare(
     "UPDATE tracker_jobs SET status='failed',error='Preview preparation was interrupted; create a new preview' WHERE status='preparing'",
   ).run();
@@ -86,6 +88,8 @@ function registerTrackerJobs(
     }
     return catalog.filter(
       (r) =>
+        !(db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='tracker_season_mappings'").get() && db.prepare('SELECT 1 FROM tracker_season_mappings WHERE profile_id=? AND provider=? AND item_id=?').get(profile,name,r.title.id)) &&
+        !r.title.chapters?.some(c=>c.format==='novel') &&
         Number.isSafeInteger(r.trackerId) &&
         r.trackerId > 0 &&
         counts.get(r.type + ":" + r.trackerId) === 1 &&
@@ -117,6 +121,7 @@ function registerTrackerJobs(
     direction,
     token,
   }) {
+    if(db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='tracker_season_mappings'").get()&&db.prepare('SELECT 1 FROM tracker_season_mappings WHERE profile_id=? AND provider=? AND item_id=?').get(profileId,name,title.id))throw Error('This title now uses season mappings; review it in the season editor');
     if (
       !Number.isInteger(desired.count) ||
       desired.count < 0 ||
@@ -126,6 +131,7 @@ function registerTrackerJobs(
       )
     )
       throw Error("Invalid tracker progress");
+
     if (direction === "push") {
       const id = Number(title[name === "mal" ? "malId" : "anilistId"]);
       if (name === "mal") {
@@ -172,6 +178,7 @@ function registerTrackerJobs(
     } else {
       db.exec("BEGIN IMMEDIATE");
       try {
+    if(direction==='pull'&&desired.specialStatus){const old=db.prepare('SELECT value FROM tracker_title_details WHERE profile_id=? AND provider=? AND item_type=? AND item_id=?').get(profileId,name,type,title.id);db.prepare('INSERT INTO tracker_title_details VALUES(?,?,?,?,?) ON CONFLICT(profile_id,provider,item_type,item_id) DO UPDATE SET value=excluded.value').run(profileId,name,type,title.id,JSON.stringify({...JSON.parse(old?.value||'{}'),state:desired.specialStatus}));}
         db.prepare(
           "INSERT INTO my_list(profile_id,item_type,item_id,status) VALUES(?,?,?,?) ON CONFLICT(profile_id,item_type,item_id) DO UPDATE SET status=excluded.status",
         ).run(profileId, type, title.id, desired.status);
@@ -241,6 +248,7 @@ function registerTrackerJobs(
             const s = r.list_status || {};
             results.set(type + ":" + r.node.id, {
               status: remoteStatuses[s.status] || "planned",
+              ...((s.is_rewatching||s.is_rereading)?{specialStatus:"repeating"}:s.status==='on_hold'?{specialStatus:"paused"}:{}),
               count:
                 s[
                   type === "anime"
@@ -265,6 +273,7 @@ function registerTrackerJobs(
           for (const r of list.entries || [])
             results.set(type + ":" + r.mediaId, {
               status: remoteStatuses[r.status] || "planned",
+              ...(r.status==='REPEATING'?{specialStatus:"repeating"}:r.status==='PAUSED'?{specialStatus:"paused"}:{}),
               count: r.progress || 0,
             });
       }
@@ -295,10 +304,11 @@ function registerTrackerJobs(
     res.json({
       automation: db
         .prepare(
-          "SELECT enabled,last_at AS lastAt,message FROM tracker_automation WHERE profile_id=? AND provider=?",
+          "SELECT enabled,direction,last_at AS lastAt,message FROM tracker_automation WHERE profile_id=? AND provider=?",
         )
         .get(owner.p.id, req.params.provider) || {
         enabled: 0,
+        direction: "push",
         lastAt: 0,
         message: "",
       },
@@ -408,7 +418,7 @@ function registerTrackerJobs(
   app.put("/api/trackers/:id/:provider/automation", (req, res) => {
     const owner = own(req, res);
     if (!owner) return;
-    if (typeof req.body?.enabled !== "boolean") return res.sendStatus(400);
+    if (typeof req.body?.enabled !== "boolean" || !["push","pull"].includes(req.body.direction||"push")) return res.sendStatus(400);
     if (
       req.body.enabled &&
       !db
@@ -419,8 +429,8 @@ function registerTrackerJobs(
     )
       return res.status(409).json({ error: "Connect this tracker first" });
     db.prepare(
-      "INSERT INTO tracker_automation(profile_id,provider,enabled) VALUES(?,?,?) ON CONFLICT(profile_id,provider) DO UPDATE SET enabled=excluded.enabled,message=''",
-    ).run(owner.p.id, req.params.provider, req.body.enabled ? 1 : 0);
+      "INSERT INTO tracker_automation(profile_id,provider,enabled,direction) VALUES(?,?,?,?) ON CONFLICT(profile_id,provider) DO UPDATE SET enabled=excluded.enabled,direction=excluded.direction,last_at=0,cursor=0,message=''",
+    ).run(owner.p.id, req.params.provider, req.body.enabled ? 1 : 0,req.body.direction||"push");
     res.json({ ok: true });
   });
   let busy = false;
@@ -478,6 +488,7 @@ function registerTrackerJobs(
               )
                 throw Error("Title mapping or authorization changed");
               const r = await remote(token, job.provider, title, entry.type);
+              if(job.direction==='push'&&r.specialStatus){entry.status='conflict';entry.error='Paused or repeat entries require advanced review';db.prepare('UPDATE tracker_jobs SET value=? WHERE id=?').run(JSON.stringify(entries),job.id);continue;}
               if (
                 !equal(local(p.id, title, entry.type), entry.beforeLocal) ||
                 !equal(r, entry.beforeRemote)
@@ -551,6 +562,7 @@ function registerTrackerJobs(
         )
         .get(now() - 300000);
       if (!config) return;
+      const direction=config.direction||"push";
       const key = config.profile_id + ":" + config.provider;
       if (locks.has(key)) return;
       locks.add(key);
@@ -567,7 +579,7 @@ function registerTrackerJobs(
           a = db
             .prepare("SELECT * FROM accounts WHERE id=?")
             .get(config.account_id),
-          all = titles(p.id, config.provider).filter((r) =>
+          all = titles(p.id, config.provider,direction==='pull').filter((r) =>
             eligible(p, a, r.title),
           ),
           entries = all.slice(config.cursor, config.cursor + 5);
@@ -590,7 +602,7 @@ function registerTrackerJobs(
               .get(p.id, config.provider, entry.type, entry.title.id),
             baseline = row && JSON.parse(row.value);
           if (
-            baseline &&
+            direction==='push' && baseline &&
             baseline.subject === token.subject &&
             baseline.trackerId === entry.trackerId &&
             equal(l, baseline.local)
@@ -602,19 +614,19 @@ function registerTrackerJobs(
             entry.title,
             entry.type,
           );
-          if (
-            baseline &&
-            baseline.subject === token.subject &&
-            baseline.trackerId === entry.trackerId
-              ? equal(r, baseline.remote)
-              : equal(r, { status: "planned", count: 0 }) || equal(l, r)
-          ) {
+          if(direction==='pull'&&r.exists===false)continue;
+          if(direction==='push'&&r.specialStatus){conflicts++;continue;}
+          const known=baseline&&baseline.subject===token.subject&&baseline.trackerId===entry.trackerId;
+          if(direction==='pull'&&known&&equal(r,baseline.remote)&&equal(l,baseline.local))continue;
+          const canSync=direction==='push'?(known?equal(r,baseline.remote):equal(r,{status:'planned',count:0})||equal(l,r)):(known?equal(l,baseline.local):equal(l,{status:'planned',count:0})||equal(l,r));
+          if(canSync){
             if (
               !db
                 .prepare(
                   "SELECT enabled FROM tracker_automation WHERE profile_id=? AND provider=?",
                 )
                 .get(p.id, config.provider)?.enabled ||
+              db.prepare("SELECT direction FROM tracker_automation WHERE profile_id=? AND provider=?").get(p.id,config.provider)?.direction!==direction ||
               db
                 .prepare(
                   "SELECT credentials FROM tracker_connections WHERE profile_id=? AND provider=?",
@@ -638,21 +650,22 @@ function registerTrackerJobs(
               name: config.provider,
               title: entry.title,
               type: entry.type,
-              desired: l,
-              direction: "push",
+              desired: direction==='push'?l:r,
+              direction,
               token,
             });
             sent++;
           } else conflicts++;
         }
         db.prepare(
-          "UPDATE tracker_automation SET last_at=?,cursor=?,message=? WHERE profile_id=? AND provider=?",
+          "UPDATE tracker_automation SET last_at=?,cursor=?,message=? WHERE profile_id=? AND provider=? AND direction=? AND enabled=1",
         ).run(
           config.cursor + 5 >= all.length ? now() : now() - 300001,
           config.cursor + 5 >= all.length ? 0 : config.cursor + 5,
           `${sent} updated; ${conflicts} conflicts require manual review`,
           p.id,
           config.provider,
+          direction,
         );
       } catch (e) {
         db.prepare(

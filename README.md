@@ -37,7 +37,7 @@ I/O uses its own `io_session` cookie and `io.db` database. By default, settings 
 - Previewed personal MAL/AniList sync, categorized notification delivery and an optional Discord desktop activity companion.
 - Registered TV browsers/remotes, personal ZIP export/deletion, local Top 10/upcoming discovery, manga volumes and formatted comments.
 
-See [0.6.0 features, setup, limits and validation](docs/RELEASE-0.6.0.md), [remaining feature gaps](docs/FEATURE-GAPS.md), [service setup](docs/RELEASE-0.3.0.md) and [installation details](docs/INSTALLATION.md). External services require your own private configuration. Full copy translation, advanced tracker fields and hardware verification remain pending. Native TV clients are development previews.
+See [0.7.0-rc.1 testing candidate](docs/RELEASE-0.7.0-rc.1.md), [production acceptance steps](docs/PRODUCTION-TESTING.md), [remaining feature gaps](docs/FEATURE-GAPS.md) and [installation details](docs/INSTALLATION.md). External services require your own private configuration. Native TV clients remain development previews; full Serika parity is not certified.
 
 ## Development
 

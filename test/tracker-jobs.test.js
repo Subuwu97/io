@@ -3,10 +3,15 @@ const { test } = require("node:test"),
   express = require("express"),
   { DatabaseSync } = require("node:sqlite");
 const { registerTrackerJobs } = require("../server/tracker-jobs");
+test('automatic imports initialize empty matched progress, then hold local edits and skip missing remote entries',async t=>{
+ const f=await fixture(t);f.setLocal({status:'planned',count:0});f.setRemote({status:'in_progress',count:1,exists:true});assert.equal((await f.request('automation',{enabled:true,direction:'pull'},'a','PUT')).status,200);await f.jobs.work();assert.equal(f.db.prepare('SELECT COUNT(*) n FROM watched_episodes').get().n,1);assert.equal(f.writes(),0);
+ f.setLocal({status:'completed',count:2});f.setRemote({status:'completed',count:2,exists:true});f.advance();await f.jobs.work();assert.equal(f.db.prepare('SELECT COUNT(*) n FROM watched_episodes').get().n,1);assert.match(f.db.prepare('SELECT message FROM tracker_automation').get().message,/1 conflicts/);
+ f.setLocal({status:'planned',count:0});f.setRemote({status:'planned',count:0,exists:false});f.advance();await f.jobs.work();assert.equal(f.db.prepare('SELECT COUNT(*) n FROM watched_episodes').get().n,1);
+});
 async function fixture(t) {
   const db = new DatabaseSync(":memory:");
   db.exec(
-    `CREATE TABLE accounts(id TEXT PRIMARY KEY,approved INTEGER,adult_content_allowed INTEGER);INSERT INTO accounts VALUES('a',1,1),('b',1,1);CREATE TABLE profiles(id TEXT PRIMARY KEY,account_id TEXT,is_kids INTEGER);INSERT INTO profiles VALUES('p','a',0),('q','b',0);CREATE TABLE my_list(profile_id TEXT,item_type TEXT,item_id TEXT,status TEXT);INSERT INTO my_list VALUES('p','anime','s','in_progress');CREATE TABLE tracker_connections(profile_id TEXT,provider TEXT,credentials TEXT);INSERT INTO tracker_connections VALUES('p','mal','sealed');`,
+    `CREATE TABLE accounts(id TEXT PRIMARY KEY,approved INTEGER,adult_content_allowed INTEGER);INSERT INTO accounts VALUES('a',1,1),('b',1,1);CREATE TABLE profiles(id TEXT PRIMARY KEY,account_id TEXT,is_kids INTEGER);INSERT INTO profiles VALUES('p','a',0),('q','b',0);CREATE TABLE my_list(profile_id TEXT,item_type TEXT,item_id TEXT,status TEXT,PRIMARY KEY(profile_id,item_type,item_id));INSERT INTO my_list VALUES('p','anime','s','in_progress');CREATE TABLE tracker_connections(profile_id TEXT,provider TEXT,credentials TEXT);INSERT INTO tracker_connections VALUES('p','mal','sealed');CREATE TABLE watched_episodes(profile_id TEXT,item_id TEXT,item_type TEXT,episode_rel_path TEXT,episode_title TEXT,watched_at TEXT,PRIMARY KEY(profile_id,item_id,episode_rel_path));`,
   );
   let clock = 1000000,
     l = { status: "in_progress", count: 1 },
@@ -158,4 +163,12 @@ test("a changed catalog mapping prevents a queued batch from writing to the wron
     f.db.prepare("SELECT value FROM tracker_jobs").get().value,
     /mapping or authorization changed/,
   );
+});
+
+test('automatic and bulk publishing never replace paused or repeat entries',async t=>{
+ const f=await fixture(t);f.setRemote({status:'planned',count:0,specialStatus:'paused'});await f.request('automation',{enabled:true},'a','PUT');await f.jobs.work();assert.equal(f.writes(),0);assert.match(f.db.prepare('SELECT message FROM tracker_automation').get().message,/1 conflicts/);
+ const plan=await(await f.request('bulk-preview',{direction:'push'})).json();await f.request('jobs/'+plan.id+'/apply',{});await f.jobs.work();assert.equal(f.writes(),0);assert.equal(f.db.prepare('SELECT status FROM tracker_jobs WHERE id=?').get(plan.id).status,'needs-review');
+});
+test('pulling protected tracker states retains their detail and rolls it back with a failed progress restore',async t=>{
+ const f=await fixture(t),options={profileId:'p',name:'mal',title:f.title,type:'anime',direction:'pull',token:{subject:'123',access_token:'test'}};await f.jobs.apply({...options,desired:{status:'planned',count:0,specialStatus:'paused'}});assert.equal(JSON.parse(f.db.prepare('SELECT value FROM tracker_title_details').get().value).state,'paused');f.db.exec('DROP TABLE watched_episodes');await assert.rejects(()=>f.jobs.apply({...options,desired:{status:'in_progress',count:1,specialStatus:'repeating'}}));assert.equal(JSON.parse(f.db.prepare('SELECT value FROM tracker_title_details').get().value).state,'paused');
 });

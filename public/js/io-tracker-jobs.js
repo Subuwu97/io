@@ -7,7 +7,7 @@ async function ioMountTrackerJobs(root) {
   const section = document.createElement("section");
   section.className = "io-settings-card";
   section.innerHTML =
-    '<h2>Whole-list sync & automation</h2><p>Bulk sync matches titles already present in your library by tracker ID. Ambiguous duplicate IDs are excluded. Preview up to 500 matched titles, then apply as a background job. Changes made after the preview become conflicts instead of being overwritten.</p><label>Tracker<select id="ioJobProvider">' +
+    '<h2>Whole-list sync & automation</h2><p>Bulk sync matches titles already present in your library by tracker ID. Ambiguous duplicate IDs and text novels without chapter mappings are excluded. Preview up to 500 matched titles, then apply as a background job. Changes made after the preview become conflicts instead of being overwritten.</p><label>Tracker<select id="ioJobProvider">' +
     connections
       .map(
         (c) =>
@@ -18,7 +18,7 @@ async function ioMountTrackerJobs(root) {
     (!connections.length ? "disabled" : "") +
     '>Preview whole-list sync</button><hr><label class="io-checkbox-row"><input type="checkbox" id="ioAutoTracker" ' +
     (!connections.length ? "disabled" : "") +
-    '>Automatically publish I/O list and completion changes</label><p>Automatic sync sends local changes to the tracker. Existing external changes are held for manual review. It never automatically pulls data or deletes remote entries. New remote entries may be created for mapped titles on your I/O list.</p><button class="btn btn-secondary" id="ioSaveAutomation" ' +
+    '>Enable automatic progress sync</label><label>Automatic sync direction<select id="ioAutoDirection"><option value="push">I/O → tracker</option><option value="pull">Tracker → I/O</option></select></label><p>Publishing holds external conflicts and paused/repeat states for review. Importing updates matched local titles only when local progress has not changed; an empty local entry can be initialized from the tracker. Missing remote entries are skipped. Playback positions are preserved. Scores and dates use the separate details editor.</p><button class="btn btn-secondary" id="ioSaveAutomation" ' +
     (!connections.length ? "disabled" : "") +
     '>Save automation choice</button><button class="btn btn-secondary" id="ioRefreshJobs">Refresh progress</button><p id="ioJobsStatus" role="status"></p><div id="ioTrackerJobs"></div>';
   root.querySelector(".io-settings-content").append(section);
@@ -35,9 +35,10 @@ async function ioMountTrackerJobs(root) {
       if (!section.isConnected) return;
       section.querySelector("#ioAutoTracker").checked =
         !!result.automation.enabled;
+      section.querySelector("#ioAutoDirection").value=result.automation.direction||"push";
       status.textContent =
         result.automation.message ||
-        "Automatic publishing is off until you enable it.";
+        "Automatic sync is off until you enable it.";
       list.innerHTML = result.jobs
         .map(
           (job) =>
@@ -72,7 +73,7 @@ async function ioMountTrackerJobs(root) {
       await ioJSON(
         "/api/trackers/" + profile.id + "/" + provider.value + "/automation",
         "PUT",
-        { enabled: section.querySelector("#ioAutoTracker").checked },
+        { enabled: section.querySelector("#ioAutoTracker").checked,direction:section.querySelector("#ioAutoDirection").value },
       );
       await load();
     } catch (error) {

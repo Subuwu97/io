@@ -2,7 +2,7 @@
 
 These are development clients for the I/O server API in this checkout. They are not store releases or hardware-certified apps. Run the matching server version before pairing. The server address is entered on the TV; approve the displayed code on an already signed-in phone/computer and choose a profile. PIN-protected profiles require their PIN. Revoke native devices in I/O's TV settings.
 
-The shared API provides profile-bound enrollment, paginated library browsing, title/episode selection, 720p HLS playback and saved playback position. Tokens are separate from account sessions and cannot access account settings. Android encrypts its token with Android Keystore; Apple uses Keychain; Roku uses its app's private registry. Registrations expire after 90 days of inactivity. Playback access is limited to the device's requested streams and rechecks profile restrictions.
+The shared API provides profile-bound enrollment, paginated library browsing, title/episode selection, HLS playback with quality and audio-track choices and saved playback position. Tokens are separate from account sessions and cannot access account settings. Android encrypts its token with Android Keystore; Apple uses Keychain; Roku uses its app's private registry. Registrations expire after 90 days of inactivity. Playback access is limited to the device's requested streams and rechecks profile restrictions.
 
 ## Android / Google TV / Fire TV
 

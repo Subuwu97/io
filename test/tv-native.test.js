@@ -34,7 +34,8 @@ test("native TV pairing binds the polling secret and owned PIN-protected profile
     },
     profiles: { verifyPin: (_a, _p, pin) => pin === "1234" },
     getLibrary: () => lib,
-    startHls: async () => ({ cacheKey: "stream123" }),
+    startHls: async (_id,_episode,options) => { if(options.audio!==undefined)assert.equal(options.audio,2);return { cacheKey: options.audio===undefined?"stream123":"streamAudio" }; },
+    getMediaInfo:async()=>({audioStreams:[{index:2,language:'ja',title:'Japanese',codec:'aac'}]}),
     now: () => clock,
   });
   const server = app.listen(0, "127.0.0.1");
@@ -132,6 +133,9 @@ test("native TV pairing binds the polling secret and owned PIN-protected profile
     grant.token,
   );
   assert.equal(playback.status, 200);
+  const options=await(await request('/playback-options?id=s&episode=one',null,null,grant.token,'GET')).json();assert.equal(options.audio[0].index,2);
+  assert.equal((await request('/play',{id:'s',episode:'one',audio:99},null,grant.token)).status,400);
+  assert.equal((await request('/play',{id:'s',episode:'one',audio:2},null,grant.token)).status,200);
   const streamCookie = (await playback.json()).streamCookie;
   const media = {
     path: "/api/hls/stream123/playlist.m3u8",

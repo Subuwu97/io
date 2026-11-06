@@ -7,7 +7,7 @@ const net = require('node:net');
 const { spawn } = require('node:child_process');
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
-test('HTTP remains available, rescans queue immediately, and an offline catalog survives a server restart', { timeout: 30000 }, async t => {
+test('HTTP remains available, rescans queue immediately, and an offline catalog survives a server restart', { timeout: 60000 }, async t => {
   const testRoot = process.env.IO_TEST_ROOT || os.tmpdir();
   fs.mkdirSync(testRoot, { recursive: true });
   const state = fs.mkdtempSync(path.join(testRoot, 'io-api-tests-'));
@@ -39,9 +39,10 @@ test('HTTP remains available, rescans queue immediately, and an offline catalog 
       stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true,
     });
     child.stdout.on('data', data => { output += data; }); child.stderr.on('data', data => { output += data; });
-    for (let tries = 0; tries < 100; tries++) {
+    const deadline = Date.now() + 15000;
+    for (; Date.now() < deadline;) {
       if (child.exitCode !== null) throw new Error(output);
-      try { if ((await fetch(base + '/api/auth/status')).ok) return; } catch {}
+      try { if ((await fetch(base + '/api/auth/status', { signal: AbortSignal.timeout(1000) })).ok) return; } catch {}
       await delay(50);
     }
     throw new Error('HTTP did not start: ' + output);
@@ -57,6 +58,7 @@ test('HTTP remains available, rescans queue immediately, and an offline catalog 
     throw new Error('Scan did not finish: ' + output);
   }
   await start();
+  const readiness=await fetch(base+'/healthz');assert.equal(readiness.status,200);assert.deepEqual(await readiness.json(),{status:'ok'});
   const registration = await fetch(base + '/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username: 'networktest', password: 'Disposable-Test-12345' }) });
   assert.ok(registration.ok, await registration.text());

@@ -8,6 +8,7 @@ function registerNativeTV(
     profiles,
     getLibrary,
     startHls,
+    getMediaInfo = async () => ({ audioStreams: [] }),
     publicOrigin = () => "",
     now = Date.now,
   },
@@ -282,7 +283,15 @@ function registerNativeTV(
       const offset = Number(b.offset || 0);
       if (!Number.isFinite(offset) || offset < 0 || offset > 1e7)
         throw Error("Invalid playback position");
+      let audio;
+      if(b.audio!==undefined&&b.audio!==null){
+        if(!Number.isInteger(b.audio)||b.audio<0)throw Error('Choose a valid audio track');
+        const info=await getMediaInfo(title.id,b.episode);
+        if(!info.audioStreams?.some(s=>s.index===b.audio))throw Error('Audio track is not available');
+        audio=b.audio;
+      }
       const result = await startHls(title.id, b.episode, {
+        audio,
         quality: b.quality || "720",
         startOffsetSeconds: offset,
       });
@@ -303,6 +312,13 @@ function registerNativeTV(
       });
     }),
   );
+  app.get('/api/tv-native/playback-options',safe(async(req,res)=>{
+    const d=auth(req,res);if(!d)return;const title=getLibrary().getShow(req.query.id);
+    if(!allowed(d,title)||!(title.groups||[]).some(g=>g.episodes.some(e=>e.relPath===req.query.episode)))return res.sendStatus(404);
+    const info=await getMediaInfo(title.id,req.query.episode);
+    if(!device(req))return res.sendStatus(401);
+    res.json({qualities:['original','1080','720','480','360'],audio:(info.audioStreams||[]).map(s=>({index:s.index,language:s.language||'und',title:s.title||'',codec:s.codec||''}))});
+  }));
   app.put("/api/tv-native/progress", (req, res) => {
     const d = auth(req, res);
     if (!d) return;

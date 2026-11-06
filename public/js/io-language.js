@@ -120,7 +120,7 @@ for (const lang of ["es", "fr", "ja"])
       return prefix + (dictionary[source] || source);
     }
     const targets = document.querySelectorAll(
-      ".io-settings-content label,.io-settings-content button,.io-settings-content h2,.io-settings-content h3,.io-settings-content>section>p,.io-settings-content option,.io-advanced-page label,.io-advanced-page button,.io-advanced-page option,.io-advanced-page h1,.io-novel>header label,.io-novel>header button,.io-novel>header summary,.io-novel>header option,.io-novel>footer button,#ioDiscussionForm button,#ioDiscussionForm label",
+      ".io-settings-page>p,.io-settings-content legend,.io-settings-content form>p,.io-settings-content .io-book-metadata dt,.io-settings-content .io-book-metadata dd,.io-settings-content [role=status],.io-novel [role=status],.io-novel #ioNovelNotes button,.io-novel #ioNovelNotes>p,.io-settings-content label,.io-settings-content button,.io-settings-content h2,.io-settings-content h3,.io-settings-content>section>p,.io-settings-content option,.io-advanced-page label,.io-advanced-page button,.io-advanced-page option,.io-advanced-page h1,.io-novel>header label,.io-novel>header button,.io-novel>header summary,.io-novel>header option,.io-novel>footer button,#ioDiscussionForm button,#ioDiscussionForm label",
     );
     for (const target of targets) {
       if (

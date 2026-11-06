@@ -86,6 +86,9 @@ function registerNovels(
     `CREATE TABLE IF NOT EXISTS novel_progress(profile_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,item_id TEXT NOT NULL,chapter TEXT NOT NULL,section INTEGER NOT NULL,fraction REAL NOT NULL,updated_at TEXT NOT NULL,PRIMARY KEY(profile_id,item_id,chapter));CREATE TABLE IF NOT EXISTS novel_preferences(profile_id TEXT PRIMARY KEY REFERENCES profiles(id) ON DELETE CASCADE,size INTEGER NOT NULL,spacing REAL NOT NULL,width INTEGER NOT NULL,theme TEXT NOT NULL);`,
   );
   const cache = new Map();
+  db.exec(
+    `CREATE TABLE IF NOT EXISTS novel_notes(id TEXT PRIMARY KEY,profile_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,item_id TEXT NOT NULL,chapter TEXT NOT NULL,section INTEGER NOT NULL,fraction REAL NOT NULL,quote TEXT NOT NULL,note TEXT NOT NULL,updated_at TEXT NOT NULL)`,
+  );
   app.use("/api/novels", (req, res, next) => {
     res.set("Cache-Control", "no-store");
     if (
@@ -137,7 +140,12 @@ function registerNovels(
       const bytes = await fs.readFile(chapter.fullPath),
         entries = archive.readZipEntries(bytes),
         sections = epub.resolveTextSpine(bytes, true);
-      parsed = { bytes, entries, sections };
+      parsed = {
+        bytes,
+        entries,
+        sections,
+        navigation: epub.resolveTextNavigation(bytes, sections),
+      };
       cache.set(key, parsed);
       while (
         [...cache.values()].reduce((n, x) => n + x.bytes.length, 0) >
@@ -157,6 +165,7 @@ function registerNovels(
       res.json({
         title: c.book.title,
         sections: c.sections.map((s, i) => ({ index: i, title: s.title })),
+        navigation: c.navigation,
         progress: db
           .prepare(
             "SELECT section,fraction FROM novel_progress WHERE profile_id=? AND item_id=? AND chapter=?",
@@ -204,6 +213,75 @@ function registerNovels(
           'src="' + url + "?profile=" + encodeURIComponent(c.p.id) + '"',
       );
       res.json({ html: clean, index });
+    }),
+  );
+  app.get(
+    "/api/novels/:id/:chapter/notes",
+    safe(async (req, res) => {
+      const c = await context(req, res);
+      if (!c) return;
+      res.json(
+        db
+          .prepare(
+            "SELECT id,section,fraction,quote,note,updated_at FROM novel_notes WHERE profile_id=? AND item_id=? AND chapter=? ORDER BY section,fraction,updated_at",
+          )
+          .all(c.p.id, c.book.id, req.params.chapter),
+      );
+    }),
+  );
+  app.post(
+    "/api/novels/:id/:chapter/notes",
+    safe(async (req, res) => {
+      const c = await context(req, res);
+      if (!c) return;
+      const b = req.body;
+      if (
+        !Number.isInteger(b.section) ||
+        !c.sections[b.section] ||
+        !Number.isFinite(b.fraction) ||
+        b.fraction < 0 ||
+        b.fraction > 1 ||
+        typeof b.quote !== "string" ||
+        b.quote.length > 2000 ||
+        typeof b.note !== "string" ||
+        b.note.length > 4000
+      )
+        throw Error(
+          "Use a valid location, a quote under 2,000 characters and a note under 4,000 characters",
+        );
+      if (
+        db
+          .prepare("SELECT count(*) AS n FROM novel_notes WHERE profile_id=?")
+          .get(c.p.id).n >= 2000
+      )
+        throw Error("This profile has reached its 2,000 saved notes limit");
+      const id = require("node:crypto").randomUUID();
+      db.prepare("INSERT INTO novel_notes VALUES(?,?,?,?,?,?,?,?,?)").run(
+        id,
+        c.p.id,
+        c.book.id,
+        req.params.chapter,
+        b.section,
+        b.fraction,
+        b.quote.trim(),
+        b.note.trim(),
+        new Date().toISOString(),
+      );
+      res.json({ id });
+    }),
+  );
+  app.delete(
+    "/api/novels/:id/:chapter/notes/:note",
+    safe(async (req, res) => {
+      const c = await context(req, res);
+      if (!c) return;
+      const result = db
+        .prepare(
+          "DELETE FROM novel_notes WHERE id=? AND profile_id=? AND item_id=? AND chapter=?",
+        )
+        .run(req.params.note, c.p.id, c.book.id, req.params.chapter);
+      if (!result.changes) return res.sendStatus(404);
+      res.json({ ok: true });
     }),
   );
   app.get(

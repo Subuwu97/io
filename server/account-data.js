@@ -6,6 +6,7 @@ const profileTables = [
   "manga_progress",
   "novel_progress",
   "novel_preferences",
+  "novel_notes",
   "reviews",
   "comments",
   "watched_episodes",
@@ -13,6 +14,8 @@ const profileTables = [
   "reader_preferences",
   "experience_preferences",
   "public_profiles",
+  "tracker_title_details",
+  "tracker_season_mappings",
   "watch_activity",
 ];
 const accountTables = [

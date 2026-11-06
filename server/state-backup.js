@@ -216,6 +216,8 @@ function restoreState(directory, backup) {
         "tv_devices",
         "tracker_states",
         "tracker_plans",
+        "tracker_detail_plans",
+          "tracker_season_plans",
         "tracker_jobs",
         "account_restore_plans",
         "passkey_challenges",

@@ -10,7 +10,7 @@ const {
 test("novel restore preserves section progress and appearance while rejecting stale sections", () => {
   const db = new DatabaseSync(":memory:");
   db.exec(
-    `CREATE TABLE novel_progress(profile_id TEXT,item_id TEXT,chapter TEXT,section INTEGER,fraction REAL,updated_at TEXT,PRIMARY KEY(profile_id,item_id,chapter));CREATE TABLE novel_preferences(profile_id TEXT PRIMARY KEY,size INTEGER,spacing REAL,width INTEGER,theme TEXT);`,
+    `CREATE TABLE novel_progress(profile_id TEXT,item_id TEXT,chapter TEXT,section INTEGER,fraction REAL,updated_at TEXT,PRIMARY KEY(profile_id,item_id,chapter));CREATE TABLE novel_preferences(profile_id TEXT PRIMARY KEY,size INTEGER,spacing REAL,width INTEGER,theme TEXT);CREATE TABLE novel_notes(id TEXT PRIMARY KEY,profile_id TEXT,item_id TEXT,chapter TEXT,section INTEGER,fraction REAL,quote TEXT,note TEXT,updated_at TEXT);`,
   );
   const data = {
     formatVersion: 1,
@@ -31,6 +31,7 @@ test("novel restore preserves section progress and appearance while rejecting st
         fraction: 0.5,
       },
     ],
+    novel_notes: [{profile_id:"old",item_id:"n",chapter:"Book",section:1,fraction:0.4,quote:"A quote",note:"My note"}],
     novel_preferences: [
       { profile_id: "old", size: 24, spacing: 1.8, width: 760, theme: "sepia" },
     ],
@@ -63,6 +64,9 @@ test("novel restore preserves section progress and appearance while rejecting st
     db.prepare("SELECT theme FROM novel_preferences").get().theme,
     "sepia",
   );
+  assert.equal(db.prepare("SELECT note FROM novel_notes").get().note,"My note");
+  applyRestorePlan(db,plan);
+  assert.equal(db.prepare("SELECT count(*) AS n FROM novel_notes").get().n,1);
   db.close();
 });
 async function fixture(t) {

@@ -162,4 +162,80 @@ function resolveTextSpine(zipBuffer, force = false) {
     ? sections
     : [];
 }
-module.exports = { resolvePageOrder, resolveTextSpine };
+// Resolve EPUB 3 navigation and EPUB 2 NCX labels only to existing spine
+// sections. External links and non-spine documents never enter the reader.
+function resolveTextNavigation(bytes, sections) {
+  const entries = archive.readZipEntries(bytes);
+  const read = (name) => {
+    const entry = entries.find((e) => e.name === name);
+    return entry
+      ? archive.extractEntry(bytes, entry, 2 * 1024 * 1024).toString("utf8")
+      : "";
+  };
+  const attr = (tag, name) =>
+    tag.match(
+      new RegExp("(?:^|\\s)" + name + "\\s*=\\s*([\"'])(.*?)\\1", "i"),
+    )?.[2] || "";
+  const root = read("META-INF/container.xml").match(/<rootfile\b[^>]*>/i)?.[0];
+  const opfPath = root && attr(root, "full-path");
+  if (!opfPath) return [];
+  const opf = read(opfPath),
+    base = path.posix.dirname(opfPath),
+    items = opf.match(/<item\b[^>]*>/gi) || [];
+  const nav = items.find((t) =>
+    attr(t, "properties").split(/\s+/).includes("nav"),
+  );
+  const ncx = items.find(
+    (t) => attr(t, "media-type") === "application/x-dtbncx+xml",
+  );
+  const chosen = nav || ncx;
+  if (!chosen) return [];
+  let navPath;
+  try {
+    navPath = resolvePath(base, decodeURIComponent(attr(chosen, "href")));
+  } catch {
+    return [];
+  }
+  const html = read(navPath),
+    result = [],
+    seen = new Set();
+  const add = (href, label) => {
+    if (!href || /^[a-z]+:|^\/|\\/i.test(href)) return;
+    try {
+      const name = resolvePath(
+        path.posix.dirname(navPath),
+        decodeURIComponent(href.split("#")[0]),
+      );
+      const index = sections.findIndex((s) => s.name === name);
+      if (index < 0 || seen.has(index)) return;
+      const title = label
+        .replace(/<[^>]*>/g, "")
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'")
+        .trim()
+        .slice(0, 160);
+      if (title) {
+        seen.add(index);
+        result.push({ index, title });
+      }
+    } catch {}
+  };
+  if (nav) {
+    const toc =
+      (html.match(
+        /<nav\b[^>]*(?:epub:type|role)\s*=\s*["'][^"']*(?:toc|doc-toc)[^"']*["'][^>]*>([\s\S]*?)<\/nav>/i,
+      ) || [])[1] || html;
+    for (const m of toc.matchAll(/<a\b([^>]*)>([\s\S]*?)<\/a>/gi))
+      add(attr(m[1], "href"), m[2]);
+  } else {
+    for (const m of html.matchAll(
+      /<navLabel\b[^>]*>([\s\S]*?)<\/navLabel>\s*<content\b([^>]*)/gi,
+    ))
+      add(attr(m[2], "src"), m[1]);
+  }
+  return result;
+}
+module.exports = { resolvePageOrder, resolveTextSpine, resolveTextNavigation };

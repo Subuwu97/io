@@ -1,0 +1,13 @@
+.git
+node_modules
+data
+!data/.gitkeep
+media
+outputs
+clients
+launcher
+test
+*.log
+.env*
+*.pem
+*.key

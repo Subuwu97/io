@@ -69,7 +69,7 @@ const BUILTIN_AVATARS_DIR = path.join(BASE_DIR, 'public', 'img', 'avatars');
 // way. Used both for the startup banner and the JS/CSS cache-busting
 // query param below, so they can never drift out of sync with each
 // other.
-const BUILD_VERSION = 'io-0.6.0-recovery-discovery-tv-previews-2026-11-06';
+const BUILD_VERSION = 'io-0.7.0-rc.1-reader-seasons-tv-2026-11-06';
 const CONFIG_PATH = path.join(DATA_DIR, 'config.json');
 const SESSION_COOKIE = 'io_session';
 const SESSION_MAX_AGE_SEC = 30 * 24 * 60 * 60; // 30 days
@@ -278,6 +278,12 @@ function scanLibrary(refreshAfterCurrent = false) {
 }
 
 const app = express();
+// Minimal deployment health signal: no accounts, paths or configuration.
+app.get('/healthz', (req,res) => {
+  res.set('Cache-Control','no-store');
+  try { db.prepare('SELECT 1').get(); res.json({status:'ok'}); }
+  catch { res.status(503).json({status:'unavailable'}); }
+});
 // Express 4 does not forward rejected async route promises automatically.
 for (const verb of ['get', 'post', 'put', 'delete', 'patch']) {
   const original = app[verb].bind(app);
@@ -457,6 +463,7 @@ function requireAdmin(req, res) {
 }
 
 const services = require('./services').createServices(DATA_DIR);
+require('./hero-entry').registerHeroEntry(app,{db,requireAuth,requireAdmin,publicOrigin:()=>services.get().publicUrl});
 require('./identity').registerIdentity(app, { db, accounts: accountsStore, services, requireAuth, setSessionCookie, getConfig: () => config });
 require('./live-tv').registerLive(app, { db, requireAuth, getLibrary: () => library, getStreamInfo });
 require('./library-actions').registerLibraryActions(app, { db, requireAuth, getLibrary: () => library, publicOrigin: () => services.get().publicUrl });
@@ -467,7 +474,7 @@ require('./account-data').registerAccountData(app, { db, requireAuth, accounts: 
 require('./tv-devices').registerTVDevices(app, { db, requireAuth, publicOrigin: () => services.get().publicUrl });
 require('./novels').registerNovels(app, { db, requireAuth, getLibrary:()=>library,publicOrigin: () => services.get().publicUrl });
 require('./discovery-plus').registerDiscoveryPlus(app, { db, requireAuth, getLibrary: () => library, publicOrigin: () => services.get().publicUrl });
-nativeTV=require('./tv-native').registerNativeTV(app,{db,requireAuth,profiles:profilesStore,getLibrary:()=>library,startHls:resolveAndStartHlsSession,publicOrigin:()=>services.get().publicUrl});
+nativeTV=require('./tv-native').registerNativeTV(app,{db,requireAuth,profiles:profilesStore,getLibrary:()=>library,startHls:resolveAndStartHlsSession,getMediaInfo:async(id,episode)=>{const file=library.resolveEpisodeFile(id,episode);if(!file)throw Error('Episode not found');return getStreamInfo(file);},publicOrigin:()=>services.get().publicUrl});
 const integrationSecrets = require('./private-settings').createPrivateSettings(DATA_DIR);
 require('./trackers').registerTrackers(app, { db, requireAuth, accounts: accountsStore, services, secrets: integrationSecrets, getLibrary: () => library });
 const notificationDelivery = require('./notification-delivery').registerNotificationDelivery(app, { db, requireAuth, services, secrets: integrationSecrets, notifications, getLibrary: () => library });

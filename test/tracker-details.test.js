@@ -1,0 +1,23 @@
+const {test}=require('node:test'),assert=require('node:assert/strict'),express=require('express'),{DatabaseSync}=require('node:sqlite');
+const {validatePatch,createDetailProvider,registerTrackerDetails}=require('../server/tracker-details');
+test('advanced tracker patches validate scores, calendar dates, repeat counts and explicit field selection',()=>{
+ assert.deepEqual(validatePatch('mal',{fields:['score'],score:8,state:'paused'}),{score:8});assert.throws(()=>validatePatch('mal',{fields:['score'],score:11}));assert.throws(()=>validatePatch('anilist',{fields:['dates'],startedAt:'2025-02-29',completedAt:''}));assert.throws(()=>validatePatch('anilist',{fields:['dates'],startedAt:'2026-02-01',completedAt:'2026-01-01'}));assert.throws(()=>validatePatch('mal',{fields:['repeat'],repeat:-1}));assert.deepEqual(validatePatch('anilist',{fields:['dates'],startedAt:'2024-02-29',completedAt:''}),{startedAt:'2024-02-29',completedAt:''});
+});
+test('AniList details use scoreRaw and fuzzy dates without sending unselected status or progress fields',async()=>{
+ let sent;const provider=createDetailProvider({json:async()=>{},graph:async(token,query,variables)=>{sent={token,query,variables};return{data:{SaveMediaListEntry:{id:1}}};}});
+ await provider.write({access_token:'test'},'anilist',{anilistId:12},'anime',{score:75});assert.deepEqual(sent.variables,{id:12,scoreRaw:75});assert.doesNotMatch(sent.query,/progress|startedAt|status/);
+ await provider.write({access_token:'test'},'anilist',{anilistId:12},'anime',{state:'repeating',repeat:2,startedAt:'2024-02-29',completedAt:''});assert.equal(sent.variables.status,'REPEATING');assert.equal(sent.variables.repeat,2);assert.deepEqual(sent.variables.startedAt,{year:2024,month:2,day:29});assert.deepEqual(sent.variables.completedAt,{year:null,month:null,day:null});
+});
+test('details previews bind the profile and connection, reject stale remote changes, and apply only reviewed fields once',async t=>{
+ const db=new DatabaseSync(':memory:');db.exec(`CREATE TABLE accounts(id TEXT PRIMARY KEY);INSERT INTO accounts VALUES('a'),('b');CREATE TABLE profiles(id TEXT PRIMARY KEY,account_id TEXT,is_kids INTEGER);INSERT INTO profiles VALUES('p','a',0);CREATE TABLE tracker_connections(profile_id TEXT,provider TEXT,credentials TEXT);INSERT INTO tracker_connections VALUES('p','mal','sealed');`);
+ const app=express();app.use(express.json());let remote={status:'on_hold',score:6,start_date:'2024-01-01',finish_date:'',num_times_rewatched:2},writes=[];
+ registerTrackerDetails(app,{db,requireAuth:req=>({id:req.headers['x-user'],adultContentAllowed:true}),credential:async()=>({access_token:'private',subject:'alice'}),getLibrary:()=>({getShow:id=>id==='s'?{id,title:'Story',malId:10,rating:'PG'}:null,getManga:()=>null}),json:async(url,options)=>{if(options.method==='PATCH'){writes.push(new URLSearchParams(options.body));remote.score=Number(writes.at(-1).get('score'));return{};}return{my_list_status:{...remote}};},graph:async()=>{},locks:new Set()});
+ const server=app.listen(0,'127.0.0.1');await new Promise(r=>server.once('listening',r));t.after(async()=>{await new Promise(r=>server.close(r));db.close();});
+ const request=(route,body,user='a')=>fetch('http://127.0.0.1:'+server.address().port+'/api/trackers/p/mal/details/'+route,{method:'POST',headers:{'Content-Type':'application/json','x-user':user},body:JSON.stringify(body)}),body={itemId:'s',itemType:'anime',direction:'push',fields:['score'],score:8};
+ assert.equal((await request('preview',body,'b')).status,403);let plan=await(await request('preview',body)).json();assert.equal(plan.before.state,'paused');assert.equal(plan.after.state,'paused');assert.equal((await request('apply',{planId:plan.id,score:10})).status,200);assert.equal(writes[0].get('score'),'8');assert.equal(writes[0].has('status'),false);assert.equal(writes[0].has('num_watched_episodes'),false);assert.equal(writes[0].has('start_date'),false);assert.equal((await request('apply',{planId:plan.id})).status,400);
+ plan=await(await request('preview',body)).json();remote.score=9;assert.equal((await request('apply',{planId:plan.id})).status,400);assert.equal(writes.length,1);
+ plan=await(await request('preview',body)).json();db.prepare('UPDATE tracker_connections SET credentials=?').run('reconnected');
+ // A reconnect before apply is allowed only when the newly linked subject and remote snapshot still match.
+ assert.equal((await request('apply',{planId:plan.id})).status,200);
+ const pull=await(await request('preview',{...body,direction:'pull'})).json();assert.equal((await request('apply',{planId:pull.id})).status,200);assert.equal(JSON.parse(db.prepare('SELECT value FROM tracker_title_details').get().value).state,'paused');
+});

@@ -192,6 +192,7 @@ function registerTrackers(
     }
     return { status, count };
   }
+  const specialStatus=(status,repeat)=>repeat||status==='REPEATING'?'repeating':status==='on_hold'||status==='PAUSED'?'paused':status&&!Object.hasOwn(fromRemote,status)?'unknown':null;
   async function remote(token, name, title, type) {
     const id = Number(title[name === "mal" ? "malId" : "anilistId"]);
     if (!Number.isSafeInteger(id) || id <= 0)
@@ -204,6 +205,8 @@ function registerTrackers(
         s = data.my_list_status;
       return {
         status: fromRemote[s?.status] || "planned",
+        exists:!!s,
+        ...(specialStatus(s?.status,s?.is_rewatching||s?.is_rereading)?{specialStatus:specialStatus(s?.status,s?.is_rewatching||s?.is_rereading)}:{}),
         count:
           s?.[
             type === "manga" ? "num_chapters_read" : "num_episodes_watched"
@@ -218,6 +221,8 @@ function registerTrackers(
       entry = data.data.Media?.mediaListEntry;
     return {
       status: fromRemote[entry?.status] || "planned",
+      exists:!!entry,
+      ...(specialStatus(entry?.status,false)?{specialStatus:specialStatus(entry?.status,false)}:{}),
       count: entry?.progress || 0,
     };
   }
@@ -431,6 +436,7 @@ function registerTrackers(
     db.prepare(
       "DELETE FROM tracker_baselines WHERE profile_id=? AND provider=?",
     ).run(owner.p.id, name);
+    db.prepare("DELETE FROM tracker_detail_plans WHERE account_id=?").run(owner.a.id);
     res.json({ ok: true });
   });
   app.post(
@@ -443,6 +449,7 @@ function registerTrackers(
         title = item(b.itemId, b.itemType);
       if (!title || !["pull", "push"].includes(b.direction))
         throw Error("Choose a title and sync direction");
+      if(db.prepare('SELECT 1 FROM tracker_season_mappings WHERE profile_id=? AND provider=? AND item_id=?').get(owner.p.id,name,title.id))throw Error('This title uses season mappings. Use the season editor to avoid changing other seasons');
       if (
         (owner.p.is_kids || owner.a.adultContentAllowed === false) &&
         /(rx|hentai|x-rated)/i.test(title.rating || "")
@@ -506,7 +513,9 @@ function registerTrackers(
         db.prepare("DELETE FROM tracker_plans WHERE id=?").run(row.id);
         const title = item(plan.itemId, plan.itemType);
         if (!title) throw Error("Title is no longer available");
+        if(db.prepare('SELECT 1 FROM tracker_season_mappings WHERE profile_id=? AND provider=? AND item_id=?').get(owner.p.id,name,title.id))throw Error('Season mapping changed; use the season editor');
         const token = await credential(owner.p.id, name),
+          sealed=db.prepare("SELECT credentials FROM tracker_connections WHERE profile_id=? AND provider=?").get(owner.p.id,name)?.credentials,
           l = local(owner.p.id, title, plan.itemType),
           r = await remote(token, name, title, plan.itemType);
         if (
@@ -519,6 +528,9 @@ function registerTrackers(
           JSON.stringify(r) !== JSON.stringify(plan.beforeRemote)
         )
           throw Error("Progress changed since the preview; review it again");
+        if(plan.direction==='push'&&r.specialStatus)throw Error('This entry is paused, repeating or uses an unsupported state. Review advanced tracker details before changing its progress.');
+        if(db.prepare('SELECT credentials FROM tracker_connections WHERE profile_id=? AND provider=?').get(owner.p.id,name)?.credentials!==sealed)throw Error('Tracker authorization changed');
+        const current=own(req,res);if(!current)return;if((current.p.is_kids||current.a.adultContentAllowed===false)&&/(rx|hentai|x-rated)/i.test(title.rating||''))throw Error('Profile restrictions changed');
         await jobs.apply({
           profileId: owner.p.id,
           name,
@@ -547,6 +559,8 @@ function registerTrackers(
     now,
     startWorker,
   });
+  require("./tracker-details").registerTrackerDetails(app,{db,requireAuth,credential,getLibrary,json,graph,locks,now});
+  require('./tracker-seasons').registerTrackerSeasons(app,{db,requireAuth,getLibrary,credential,remote,json,graph,locks,now});
   return jobs;
 }
 module.exports = { registerTrackers };

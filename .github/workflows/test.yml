@@ -1,0 +1,28 @@
+name: I/O server checks
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - name: Prepare isolated test data
+        shell: pwsh
+        run: New-Item -ItemType Directory -Force -Path "$env:RUNNER_TEMP/io-tests" | Out-Null
+      - name: Run automated checks
+        run: npm test
+        env:
+          IO_TEST_ROOT: ${{ runner.temp }}/io-tests
+          TEMP: ${{ runner.temp }}/io-tests
+          TMP: ${{ runner.temp }}/io-tests
