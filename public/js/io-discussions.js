@@ -137,7 +137,7 @@ async function ioPageModeration(root) {
       queue.innerHTML=data.reports.length ? data.reports.map(report=>`<article class="io-report-card"><header><strong>${escapeHtml(report.author)}</strong><span>${escapeHtml(report.showTitle)}</span></header>
         <details ${report.spoiler ? '' : 'open'}><summary>${report.spoiler ? 'Reported spoiler — reveal' : 'Reported comment'}</summary><p class="io-report-body">${escapeHtml(report.commentBody)}</p></details>
         <p><strong>Reason:</strong> ${escapeHtml(report.reason)}</p><p class="io-muted">Reported by ${escapeHtml(report.reporter)} · ${escapeHtml(new Date(report.createdAt).toLocaleString())}</p>
-        <a href="#/watch/${encodeURIComponent(report.showId)}/${encodeURIComponent(report.episode)}">Open episode discussion ↗</a>
+        <a href="${escapeHtml(ioDiscussionLink(report.showId,report.episode))}">Open discussion ↗</a>
         ${report.status==='open' ? `<div class="io-dialog-actions"><button class="btn btn-secondary" data-resolve="${escapeHtml(report.id)}" data-action="dismiss">Dismiss report</button><button class="btn btn-primary" data-resolve="${escapeHtml(report.id)}" data-action="remove">Remove comment</button></div>` : `<p>Status: ${escapeHtml(report.status)}</p>`}</article>`).join('') : '<div class="empty-state"><h2>No reports here</h2></div>';
     } catch(error){if(status.isConnected && current===generation)status.textContent=error.message;}
   }

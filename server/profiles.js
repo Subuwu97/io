@@ -13,6 +13,7 @@ function hydrateProfile(row) {
   if (!row) return null;
   const myList = db.prepare('SELECT item_type, item_id FROM my_list WHERE profile_id = ?').all(row.id)
     .map((r) => `${r.item_type}:${r.item_id}`);
+  const listStatuses = Object.fromEntries(db.prepare('SELECT item_type,item_id,status FROM my_list WHERE profile_id=?').all(row.id).map(r=>[`${r.item_type}:${r.item_id}`,r.status]));
   const topPicks = db.prepare('SELECT item_type, item_id FROM top_picks WHERE profile_id = ?').all(row.id)
     .map((r) => `${r.item_type}:${r.item_id}`);
   const progress = {};
@@ -50,6 +51,7 @@ function hydrateProfile(row) {
     subtitleBg: row.subtitle_bg || 'box',
     topPicks,
     myList,
+    listStatuses,
     progress,
     mangaProgress,
     watchedEpisodes,

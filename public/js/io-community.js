@@ -1,4 +1,5 @@
 const IO_REACTIONS=[['❤️','Love'],['😂','Laugh'],['😮','Surprised'],['😢','Sad'],['🔥','Fire'],['👏','Applause']];
+function ioDiscussionLink(showId,episode){return showId.startsWith('manga:')?'#/read/'+encodeURIComponent(showId.slice(6))+'/'+encodeURIComponent(episode)+'/1':'#/watch/'+encodeURIComponent(showId)+'/'+encodeURIComponent(episode);}
 function ioReactionHTML(comment){return`<div class="io-reaction-row">${IO_REACTIONS.map(([emoji,label])=>{const reaction=(comment.reactions||[]).find(r=>r.emoji===emoji);return`<button data-reaction="${emoji}" data-reaction-comment="${escapeHtml(comment.id)}" aria-label="${label} reaction" aria-pressed="${!!reaction?.reacted}">${emoji} <span>${reaction?.count||0}</span></button>`;}).join('')}</div>`;}
 
 async function ioPageCommunityInbox(root){
@@ -9,7 +10,7 @@ async function ioPageCommunityInbox(root){
   root.querySelector('#ioInboxRefresh').onclick=()=>load();more.onclick=()=>load(true);
   root.querySelector('#ioInboxReadAll').onclick=async()=>{try{await ioJSON('/api/community/notifications/read','POST',{all:true});await load();}catch(error){status.textContent=error.message;}};
   root.querySelector('#ioNotifyEnabled').onchange=async e=>{const value=e.target.checked;e.target.disabled=true;try{await ioJSON('/api/community/preferences','PUT',{enabled:value});status.textContent=value?'Notifications enabled.':'New reply and reaction notifications are turned off.';}catch(error){e.target.checked=!value;status.textContent=error.message;}finally{e.target.disabled=false;}};
-  list.onclick=async e=>{const button=e.target.closest('[data-open-notification],[data-read-notification]');if(!button)return;const item=items.find(i=>i.id===(button.dataset.openNotification||button.dataset.readNotification));if(!item)return;button.disabled=true;try{await ioJSON('/api/community/notifications/read','POST',{id:item.id});window.dispatchEvent(new Event('io-community-read'));if(button.dataset.openNotification){try{sessionStorage.setItem('ioDiscussionFocus',JSON.stringify({showId:item.showId,commentId:item.commentId}));}catch{}location.hash='#/watch/'+encodeURIComponent(item.showId)+'/'+encodeURIComponent(item.episode);}else await load();}catch(error){status.textContent=error.message;button.disabled=false;}};
+  list.onclick=async e=>{const button=e.target.closest('[data-open-notification],[data-read-notification]');if(!button)return;const item=items.find(i=>i.id===(button.dataset.openNotification||button.dataset.readNotification));if(!item)return;button.disabled=true;try{await ioJSON('/api/community/notifications/read','POST',{id:item.id});window.dispatchEvent(new Event('io-community-read'));if(button.dataset.openNotification){try{sessionStorage.setItem('ioDiscussionFocus',JSON.stringify({showId:item.showId,commentId:item.commentId}));}catch{}location.hash=ioDiscussionLink(item.showId,item.episode);}else await load();}catch(error){status.textContent=error.message;button.disabled=false;}};
   await load();
 }
 

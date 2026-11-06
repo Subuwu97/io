@@ -64,6 +64,10 @@ async function renderApp() {
       await ioPageServices(appRoot);
     } else if (parts[0] === 'community-notifications') {
       await ioPageCommunityInbox(appRoot);
+    } else if (parts[0] === 'my-requests') {
+      await ioPageRequests(appRoot);
+    } else if (parts[0] === 'library-queue') {
+      await ioPageRequests(appRoot,true);
     } else if (parts[0] === 'series') {
       await pageGrid(appRoot, 'series');
     } else if (parts[0] === 'movies') {
