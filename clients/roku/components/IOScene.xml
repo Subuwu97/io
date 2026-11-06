@@ -1,0 +1,11 @@
+<component name="IOScene" extends="Scene">
+ <script type="text/brightscript" uri="IOScene.brs"/>
+ <children>
+  <Label id="heading" text="I/O TV" translation="[70,35]" width="1140" height="55"/>
+  <Label id="status" translation="[70,95]" width="1140" height="150" wrap="true"/>
+  <LabelList id="list" translation="[70,255]" itemSize="[1140,55]" numRows="8"/>
+  <Video id="video" visible="false" width="1280" height="720"/>
+  <Timer id="poll" duration="3" repeat="false"/>
+  <Timer id="progress" duration="15" repeat="true"/>
+ </children>
+</component>

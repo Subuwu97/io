@@ -15,6 +15,7 @@ function registerPublicProfiles(
     statistics: false,
     social: false,
   };
+  const relations = require("./relationships").createRelationships(db);
   app.use("/api/people", (req, res, next) => {
     res.set("Cache-Control", "no-store");
     if (
@@ -27,6 +28,7 @@ function registerPublicProfiles(
       return res.status(403).json({ error: "Request origin is not allowed" });
     next();
   });
+  relations.register(app, { requireAuth });
   function owned(req, res, a) {
     if (!a) return;
     const p = db
@@ -72,12 +74,18 @@ function registerPublicProfiles(
     if (
       typeof b.slug !== "string" ||
       !/^[a-zA-Z0-9][a-zA-Z0-9_-]{2,31}$/.test(b.slug) ||
-      !["private", "unlisted", "public"].includes(b.visibility) ||
+      !["private", "unlisted", "public", "friends"].includes(b.visibility) ||
       typeof b.discoverable !== "boolean" ||
       typeof b.bio !== "string" ||
       b.bio.length > 1000 ||
       !b.privacy ||
-      sections.some((s) => typeof b.privacy[s] !== "boolean") ||
+      sections.some(
+        (s) =>
+          typeof b.privacy[s] !== "boolean" &&
+          !["private", "members", "followers", "friends"].includes(
+            b.privacy[s],
+          ),
+      ) ||
       !Array.isArray(b.characters) ||
       b.characters.length > 12 ||
       b.characters.some((c) => typeof c !== "string" || c.length > 100) ||
@@ -154,9 +162,9 @@ function registerPublicProfiles(
       page = Math.max(0, Math.min(10000, parseInt(req.query.page) || 0));
     const rows = db
       .prepare(
-        `SELECT u.*,p.name,p.avatar FROM public_profiles u JOIN profiles p ON p.id=u.profile_id JOIN accounts a ON a.id=p.account_id WHERE u.visibility='public' AND u.discoverable=1 AND p.is_kids=0 AND a.approved=1 AND (instr(lower(u.slug),lower(?))>0 OR instr(lower(p.name),lower(?))>0) ORDER BY u.slug COLLATE NOCASE LIMIT 25 OFFSET ?`,
+        `SELECT u.*,p.name,p.avatar FROM public_profiles u JOIN profiles p ON p.id=u.profile_id JOIN accounts a ON a.id=p.account_id WHERE u.visibility='public' AND u.discoverable=1 AND p.is_kids=0 AND a.approved=1 AND NOT EXISTS(SELECT 1 FROM account_blocks b WHERE (b.source=? AND b.target=p.account_id) OR (b.source=p.account_id AND b.target=?)) AND (instr(lower(u.slug),lower(?))>0 OR instr(lower(p.name),lower(?))>0) ORDER BY u.slug COLLATE NOCASE LIMIT 25 OFFSET ?`,
       )
-      .all(q, q, page * 24);
+      .all(a.id, a.id, q, q, page * 24);
     res.json({
       items: rows.slice(0, 24).map(card),
       hasMore: rows.length > 24,
@@ -172,11 +180,22 @@ function registerPublicProfiles(
       )
       .get(req.params.slug);
     const owner = row?.account_id === a.id;
-    if (!row || ((row.visibility === "private" || row.is_kids) && !owner))
+    if (
+      !row ||
+      (!owner && relations.blocked(a.id, row.account_id)) ||
+      ((row.visibility === "private" || row.is_kids) && !owner)
+    )
       return res.status(404).json({ error: "Public profile not found" });
     const out = { ...card(row), owner, visibility: row.visibility },
       privacy = JSON.parse(row.privacy),
       library = getLibrary();
+    const viewerId = relations.viewer(req, a);
+    out.relationship = relations.state(viewerId, row.profile_id);
+    const allowed = (section) =>
+      (row.visibility !== "friends" ||
+        owner ||
+        relations.friend(viewerId, row.profile_id)) &&
+      relations.audience(privacy[section], owner, viewerId, row.profile_id);
     // A public profile is a separate allowlisted projection, never a hydrated household profile.
     const title = (type, id) => {
       const item =
@@ -185,7 +204,7 @@ function registerPublicProfiles(
         ? { id: item.id, type, title: item.title, cover: item.cover || null }
         : null;
     };
-    if (privacy.list)
+    if (allowed("list"))
       out.list = db
         .prepare(
           "SELECT item_type,item_id,status FROM my_list WHERE profile_id=?",
@@ -196,7 +215,7 @@ function registerPublicProfiles(
           return t ? { ...t, status: r.status } : null;
         })
         .filter(Boolean);
-    if (privacy.favorites)
+    if (allowed("favorites"))
       out.favorites = {
         titles: db
           .prepare("SELECT item_type,item_id FROM top_picks WHERE profile_id=?")
@@ -205,7 +224,7 @@ function registerPublicProfiles(
           .filter(Boolean),
         characters: JSON.parse(row.characters),
       };
-    if (privacy.reviews)
+    if (allowed("reviews"))
       out.reviews = db
         .prepare(
           "SELECT item_type,item_id,rating,text,created_at FROM reviews WHERE profile_id=? ORDER BY created_at DESC LIMIT 100",
@@ -218,7 +237,7 @@ function registerPublicProfiles(
             : null;
         })
         .filter(Boolean);
-    if (privacy.statistics)
+    if (allowed("statistics"))
       out.statistics = {
         watchedHours: Math.floor((row.watched_seconds || 0) / 3600),
         completedTitles: db
@@ -228,7 +247,7 @@ function registerPublicProfiles(
           .all(row.profile_id)
           .filter((r) => title(r.item_type, r.item_id)).length,
       };
-    if (privacy.social) out.links = JSON.parse(row.links);
+    if (allowed("social")) out.links = JSON.parse(row.links);
     res.json(out);
   });
 }

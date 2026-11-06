@@ -3,3 +3,4 @@
 *.png binary
 *.jpg binary
 *.wasm binary
+public/vendor/tiptap.js -whitespace

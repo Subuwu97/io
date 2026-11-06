@@ -1,6 +1,10 @@
 function ioTVStored() {
   try {
-    return JSON.parse(sessionStorage.getItem("ioTVDevice") || "null");
+    return JSON.parse(
+      sessionStorage.getItem("ioTVDevice") ||
+        localStorage.getItem("ioTVDevice") ||
+        "null",
+    );
   } catch {
     return null;
   }
@@ -53,9 +57,13 @@ function ioTVStart() {
         }
       }
     } catch (error) {
-      if (/not found|not registered|sign.in/i.test(error.message)) {
+      if (error.status === 401) clearInterval(window.ioTVTimer);
+      if (
+        /not found|not registered|registration expired/i.test(error.message)
+      ) {
         clearInterval(window.ioTVTimer);
         sessionStorage.removeItem("ioTVDevice");
+        localStorage.removeItem("ioTVDevice");
       }
     } finally {
       busy = false;
@@ -67,7 +75,7 @@ function ioTVStart() {
 async function ioPageTVDevices(root) {
   root.innerHTML = ioSettingsShell(
     "TV devices & remote",
-    `<section class="io-settings-card"><h2>Register this TV browser</h2><p>Open this page on your TV and sign in to your I/O account. Register that browser, then use this page on your phone with the same account to control playback. Registration stays active in that TV tab until it closes. You may need to press Play on the TV once.</p><form id="ioRegisterTV"><label>Device name<input name="name" maxlength="80" required placeholder="Living room TV"></label><button class="btn btn-primary">Register this browser</button></form><p role="status" id="ioTVStatus"></p></section><section class="io-settings-card"><h2>Your registered devices</h2><button class="btn btn-secondary" id="ioTVRefresh">Refresh</button><div id="ioTVList"></div></section>`,
+    `<section class="io-settings-card"><h2>Register this TV browser</h2><p>Open this page on your TV and sign in to your I/O account. Register that browser, then use this page on your phone with the same account to control playback. Choose Remember this TV to keep registration after closing the browser; idle registrations expire after 90 days. You may need to press Play on the TV once.</p><form id="ioRegisterTV"><label>Device name<input name="name" maxlength="80" required placeholder="Living room TV"></label><label class="io-checkbox-row"><input type="checkbox" name="remember">Remember this TV on this device</label><button class="btn btn-primary">Register this browser</button></form><p role="status" id="ioTVStatus"></p></section><section class="io-settings-card"><h2>Your registered devices</h2><button class="btn btn-secondary" id="ioTVRefresh">Refresh</button><div id="ioTVList"></div></section>`,
     "tv-devices",
   );
   wireNavbar();
@@ -107,7 +115,12 @@ async function ioPageTVDevices(root) {
       const device = await ioJSON("/api/tv-devices", "POST", {
         name: new FormData(e.target).get("name"),
       });
-      sessionStorage.setItem(
+      sessionStorage.removeItem("ioTVDevice");
+      localStorage.removeItem("ioTVDevice");
+      (new FormData(e.target).has("remember")
+        ? localStorage
+        : sessionStorage
+      ).setItem(
         "ioTVDevice",
         JSON.stringify({ ...device, accountId: Store.account.id }),
       );

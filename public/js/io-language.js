@@ -102,14 +102,68 @@ const IO_NAV_TRANSLATIONS = {
     "Sign out": "ログアウト",
   },
 };
+for (const lang of ["es", "fr", "ja"])
+  Object.assign(IO_NAV_TRANSLATIONS[lang], IO_UI_TRANSLATIONS[lang]);
 (function () {
-  const originals = new WeakMap();
+  const originals = new WeakMap(),
+    textOriginals = new WeakMap(),
+    attributeOriginals = new WeakMap();
   let scheduled = false;
   function translate() {
     scheduled = false;
     const lang = Store.activeProfile?.experience?.interfaceLanguage || "en",
       dictionary = IO_NAV_TRANSLATIONS[lang] || {};
     document.documentElement.lang = lang;
+    function translated(text) {
+      const prefix = (text.match(/^[‹←]\s*/) || [""])[0],
+        source = text.slice(prefix.length);
+      return prefix + (dictionary[source] || source);
+    }
+    const targets = document.querySelectorAll(
+      ".io-settings-content label,.io-settings-content button,.io-settings-content h2,.io-settings-content h3,.io-settings-content>section>p,.io-settings-content option,.io-advanced-page label,.io-advanced-page button,.io-advanced-page option,.io-advanced-page h1,.io-novel>header label,.io-novel>header button,.io-novel>header summary,.io-novel>header option,.io-novel>footer button,#ioDiscussionForm button,#ioDiscussionForm label",
+    );
+    for (const target of targets) {
+      if (
+        target.closest(
+          '#ioRestoreSource,#ioRestoreTarget,select[name="profileId"],.io-comment-editor',
+        )
+      )
+        continue;
+      const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT);
+      let node;
+      while ((node = walker.nextNode())) {
+        if (
+          node.parentElement.closest(
+            '#ioRestoreSource,#ioRestoreTarget,select[name="profileId"]',
+          )
+        )
+          continue;
+        const text = node.nodeValue,
+          old = textOriginals.get(node),
+          source = old && old.last === text ? old.source : text,
+          trimmed = source.trim(),
+          value = translated(trimmed),
+          next = value === trimmed ? source : source.replace(trimmed, value);
+        if (text !== next) node.nodeValue = next;
+        textOriginals.set(node, { source, last: next });
+      }
+    }
+    for (const target of document.querySelectorAll(
+      'input[placeholder],textarea[placeholder],button[aria-label],[role="toolbar"][aria-label],[role="textbox"][aria-label]',
+    )) {
+      let state = attributeOriginals.get(target) || {};
+      for (const attribute of ["placeholder", "aria-label"]) {
+        if (!target.hasAttribute(attribute)) continue;
+        const text = target.getAttribute(attribute),
+          old = state[attribute],
+          source = old && old.last === text ? old.source : text,
+          value = translated(source);
+        if (text !== value) target.setAttribute(attribute, value);
+        state[attribute] = { source, last: value };
+      }
+      attributeOriginals.set(target, state);
+    }
+
     for (const el of document.querySelectorAll(
       ".navbar a,.io-settings-nav a,.io-settings-page>h1,.io-footer a",
     )) {

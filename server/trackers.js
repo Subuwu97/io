@@ -26,6 +26,7 @@ function registerTrackers(
     getLibrary,
     fetchImpl = fetch,
     now = Date.now,
+    startWorker = true,
   },
 ) {
   db.exec(
@@ -421,6 +422,15 @@ function registerTrackers(
       "DELETE FROM tracker_connections WHERE profile_id=? AND provider=?",
     ).run(owner.p.id, name);
     db.prepare("DELETE FROM tracker_plans WHERE account_id=?").run(owner.a.id);
+    db.prepare(
+      "UPDATE tracker_automation SET enabled=0 WHERE profile_id=? AND provider=?",
+    ).run(owner.p.id, name);
+    db.prepare(
+      "UPDATE tracker_jobs SET status='cancelled' WHERE profile_id=? AND provider=? AND status IN ('preparing','preview','queued','running')",
+    ).run(owner.p.id, name);
+    db.prepare(
+      "DELETE FROM tracker_baselines WHERE profile_id=? AND provider=?",
+    ).run(owner.p.id, name);
     res.json({ ok: true });
   });
   app.post(
@@ -509,101 +519,34 @@ function registerTrackers(
           JSON.stringify(r) !== JSON.stringify(plan.beforeRemote)
         )
           throw Error("Progress changed since the preview; review it again");
-        if (plan.direction === "push") {
-          const id = Number(title[name === "mal" ? "malId" : "anilistId"]);
-          if (name === "mal") {
-            const status =
-              l.status === "planned"
-                ? plan.itemType === "manga"
-                  ? "plan_to_read"
-                  : "plan_to_watch"
-                : l.status === "in_progress"
-                  ? plan.itemType === "manga"
-                    ? "reading"
-                    : "watching"
-                  : l.status;
-            await json(
-              `https://api.myanimelist.net/v2/${plan.itemType}/${id}/my_list_status`,
-              {
-                method: "PATCH",
-                headers: {
-                  Authorization: "Bearer " + token.access_token,
-                  "Content-Type": "application/x-www-form-urlencoded",
-                },
-                body: new URLSearchParams({
-                  status,
-                  [plan.itemType === "manga"
-                    ? "num_chapters_read"
-                    : "num_watched_episodes"]: String(l.count),
-                }).toString(),
-              },
-            );
-          } else
-            await graph(
-              token.access_token,
-              "mutation($id:Int!,$status:MediaListStatus,$progress:Int){SaveMediaListEntry(mediaId:$id,status:$status,progress:$progress){id}}",
-              {
-                id,
-                status: {
-                  planned: "PLANNING",
-                  in_progress: "CURRENT",
-                  completed: "COMPLETED",
-                  dropped: "DROPPED",
-                }[l.status],
-                progress: l.count,
-              },
-            );
-        } else {
-          db.exec("BEGIN IMMEDIATE");
-          try {
-            db.prepare(
-              "INSERT INTO my_list(profile_id,item_type,item_id,status) VALUES(?,?,?,?) ON CONFLICT(profile_id,item_type,item_id) DO UPDATE SET status=excluded.status",
-            ).run(owner.p.id, plan.itemType, title.id, r.status);
-            if (plan.itemType === "anime") {
-              const episodes = (title.groups || []).flatMap((g) => g.episodes);
-              db.prepare(
-                "DELETE FROM watched_episodes WHERE profile_id=? AND item_id=?",
-              ).run(owner.p.id, title.id);
-              for (const ep of episodes.slice(0, Math.max(0, r.count)))
-                db.prepare(
-                  "INSERT INTO watched_episodes(profile_id,item_id,item_type,episode_rel_path,episode_title,watched_at) VALUES(?,?,?,?,?,?)",
-                ).run(
-                  owner.p.id,
-                  title.id,
-                  "anime",
-                  ep.relPath,
-                  ep.title || "",
-                  new Date(now()).toISOString(),
-                );
-            } else if (r.count > 0 && title.chapters.length) {
-              const chapter =
-                  title.chapters[Math.min(title.chapters.length, r.count) - 1],
-                pages = chapter.pageCount || 1;
-              db.prepare(
-                "INSERT INTO manga_progress VALUES(?,?,?,?,?,?) ON CONFLICT(profile_id,manga_id) DO UPDATE SET chapter_name=excluded.chapter_name,page=excluded.page,total_pages=excluded.total_pages,updated_at=excluded.updated_at",
-              ).run(
-                owner.p.id,
-                title.id,
-                chapter.name,
-                pages,
-                pages,
-                new Date(now()).toISOString(),
-              );
-            } else
-              db.prepare(
-                "DELETE FROM manga_progress WHERE profile_id=? AND manga_id=?",
-              ).run(owner.p.id, title.id);
-            db.exec("COMMIT");
-          } catch (e) {
-            db.exec("ROLLBACK");
-            throw e;
-          }
-        }
+        await jobs.apply({
+          profileId: owner.p.id,
+          name,
+          title,
+          type: plan.itemType,
+          desired: plan.direction === "push" ? l : r,
+          direction: plan.direction,
+          token,
+        });
         res.json({ ok: true });
       } finally {
         locks.delete(key);
       }
     }),
   );
+  const jobs = require("./tracker-jobs").registerTrackerJobs(app, {
+    db,
+    requireAuth,
+    getLibrary,
+    credential,
+    local,
+    remote,
+    json,
+    graph,
+    locks,
+    now,
+    startWorker,
+  });
+  return jobs;
 }
 module.exports = { registerTrackers };

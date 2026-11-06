@@ -9,7 +9,12 @@ async function ioPagePeople(root, slug) {
   const content = root.querySelector("#ioPeopleContent");
   try {
     if (slug) {
-      const p = await API._fetch("/api/people/u/" + encodeURIComponent(slug));
+      const p = await API._fetch(
+        "/api/people/u/" +
+          encodeURIComponent(slug) +
+          "?viewer=" +
+          encodeURIComponent(Store.activeProfile.id),
+      );
       if (location.hash !== hash) return;
       const cards = (items) =>
         items
@@ -19,6 +24,49 @@ async function ioPagePeople(root, slug) {
           )
           .join("");
       content.innerHTML = `<a href="#/people">‹ Discover people</a><div class="io-person-heading"><img src="${escapeHtml(p.avatar)}" width="80" height="80" alt=""><div><h2>${escapeHtml(p.name)}</h2><p>@${escapeHtml(p.slug)}</p></div></div><p class="io-person-bio">${escapeHtml(p.bio)}</p>${p.owner ? '<a href="#/public-profile">Edit privacy & profile</a>' : ""}${p.statistics ? `<h3>Statistics</h3><p>${p.statistics.watchedHours} hours watched · ${p.statistics.completedTitles} completed titles</p>` : ""}${p.list ? "<h3>My List</h3>" + (cards(p.list) || "<p>No shared titles yet.</p>") : ""}${p.favorites ? "<h3>Favorites</h3>" + cards(p.favorites.titles) + "<p>" + p.favorites.characters.map(escapeHtml).join(" · ") + "</p>" : ""}${p.reviews ? "<h3>Reviews</h3>" + p.reviews.map((r) => `<article class="io-people-review"><h4>${escapeHtml(r.title)} · ${escapeHtml(String(r.rating))}/10</h4><p>${escapeHtml(r.text)}</p></article>`).join("") : ""}${p.links ? "<h3>Social links</h3>" + p.links.map((l) => `<p><a href="${escapeHtml(l.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(l.label)} ↗</a></p>`).join("") : ""}`;
+      if (!p.owner) {
+        const actions = document.createElement("div");
+        actions.className = "io-dialog-actions";
+        const r = p.relationship;
+        actions.innerHTML =
+          '<button class="btn btn-secondary" data-person-action="' +
+          (r.following ? "unfollow" : "follow") +
+          '">' +
+          (r.following ? "Unfollow" : "Follow") +
+          "</button>" +
+          ({
+            none: '<button class="btn btn-primary" data-person-action="request">Add friend</button>',
+            outgoing:
+              '<button class="btn btn-secondary" data-person-action="cancel">Cancel friend request</button>',
+            incoming:
+              '<button class="btn btn-primary" data-person-action="accept">Accept friend request</button><button class="btn btn-secondary" data-person-action="decline">Decline</button>',
+            friends:
+              '<button class="btn btn-secondary" data-person-action="unfriend">Remove friend</button>',
+          }[r.friendship] || "") +
+          '<button class="btn-ghost" data-person-action="block">Block account</button><a href="#/connections">My connections</a><p role="status"></p>';
+        content.querySelector(".io-person-bio").after(actions);
+        actions.onclick = async (e) => {
+          const b = e.target.closest("[data-person-action]");
+          if (!b) return;
+          b.disabled = true;
+          try {
+            await ioJSON(
+              "/api/people/u/" + encodeURIComponent(slug) + "/relationship",
+              "POST",
+              {
+                profileId: Store.activeProfile.id,
+                action: b.dataset.personAction,
+              },
+            );
+            if (b.dataset.personAction === "block")
+              location.hash = "#/connections";
+            else await ioPagePeople(root, slug);
+          } catch (error) {
+            actions.querySelector("[role=status]").textContent = error.message;
+            b.disabled = false;
+          }
+        };
+      }
     } else {
       content.innerHTML =
         '<form id="ioPeopleSearch"><label for="ioPeopleQuery">Search public usernames or display names</label><div class="io-dialog-actions"><input id="ioPeopleQuery" type="search" maxlength="80"><button class="btn btn-primary">Search</button></div></form><p>Only profiles that choose to appear here are listed. <a href="#/public-profile">Manage your visibility</a></p><div id="ioPeopleResults" class="io-people-grid"></div><button class="btn btn-secondary" id="ioPeopleMore" hidden>Load more</button><p id="ioPeopleStatus" role="status"></p>';
@@ -86,12 +134,22 @@ async function ioPagePublicProfile(root) {
   };
   root.innerHTML = ioSettingsShell(
     "Public profile & privacy",
-    `<form id="ioPublicForm" class="io-settings-card"><p>Your viewing profile stays private by default. Sharing is limited to the sections you enable below. Public pages are visible to signed-in I/O members; mature titles are excluded.</p><label>Public username<input name="slug" value="${escapeHtml(p.slug)}" pattern="[a-zA-Z0-9][a-zA-Z0-9_-]{2,31}" required minlength="3" maxlength="32"></label><label>Visibility<select name="visibility"><option value="private">Private — only your account</option><option value="unlisted">Unlisted — members with your link</option><option value="public">Public — members with your link</option></select></label><label class="io-checkbox-row"><input type="checkbox" name="discoverable" ${p.discoverable ? "checked" : ""}>Include in user discovery when public</label>${profile.isKids ? "<p>Kids profiles must stay private.</p>" : ""}<label>About you<textarea name="bio" maxlength="1000">${escapeHtml(p.bio)}</textarea></label><fieldset><legend>Shared sections</legend>${Object.entries(
+    `<form id="ioPublicForm" class="io-settings-card"><p>Your viewing profile stays private by default. Sharing is limited to the sections you enable below. Public pages are visible to signed-in I/O members; mature titles are excluded.</p><label>Public username<input name="slug" value="${escapeHtml(p.slug)}" pattern="[a-zA-Z0-9][a-zA-Z0-9_-]{2,31}" required minlength="3" maxlength="32"></label><label>Visibility<select name="visibility"><option value="private">Private — only your account</option><option value="unlisted">Unlisted — members with your link</option><option value="friends">Friends — sections only for accepted friends</option><option value="public">Public — members with your link</option></select></label><label class="io-checkbox-row"><input type="checkbox" name="discoverable" ${p.discoverable ? "checked" : ""}>Include in user discovery when public</label>${profile.isKids ? "<p>Kids profiles must stay private.</p>" : ""}<label>About you<textarea name="bio" maxlength="1000">${escapeHtml(p.bio)}</textarea></label><fieldset><legend>Shared sections</legend>${Object.entries(
       sections,
     )
       .map(
         ([k, v]) =>
-          `<label class="io-checkbox-row"><input type="checkbox" name="privacy-${k}" ${p.privacy[k] ? "checked" : ""}>${v}</label>`,
+          `<label>${v}<select name="privacy-${k}">${[
+            ["private", "Only me"],
+            ["members", "All signed-in members"],
+            ["followers", "People who follow me"],
+            ["friends", "Accepted friends"],
+          ]
+            .map(
+              ([value, label]) =>
+                `<option value="${value}" ${(p.privacy[k] === true ? "members" : p.privacy[k] === false ? "private" : p.privacy[k]) === value ? "selected" : ""}>${label}</option>`,
+            )
+            .join("")}</select></label>`,
       )
       .join(
         "",
@@ -131,7 +189,7 @@ async function ioPagePublicProfile(root) {
             .filter((s) => s.trim()),
           links,
           privacy: Object.fromEntries(
-            Object.keys(sections).map((k) => [k, data.has("privacy-" + k)]),
+            Object.keys(sections).map((k) => [k, data.get("privacy-" + k)]),
           ),
         },
       );
@@ -148,7 +206,7 @@ async function ioPagePublicProfile(root) {
   window.ioSettingsNav = function (active) {
     return nav(active).replace(
       "</nav>",
-      '<a href="#/public-profile">Public profile & privacy</a><a href="#/people">Discover people</a></nav>',
+      '<a href="#/public-profile">Public profile & privacy</a><a href="#/people">Discover people</a><a href="#/connections">Friends, follows & blocks</a></nav>',
     );
   };
   const navbar = window.renderNavbar;

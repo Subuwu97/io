@@ -1,0 +1,4 @@
+<component name="ApiTask" extends="Task">
+ <interface><field id="url" type="string"/><field id="method" type="string" value="GET"/><field id="body" type="assocarray"/><field id="token" type="string"/><field id="response" type="assocarray" alwaysNotify="true"/></interface>
+ <script type="text/brightscript" uri="ApiTask.brs"/>
+</component>

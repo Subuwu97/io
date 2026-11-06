@@ -4,6 +4,8 @@ const profileTables = [
   "top_picks",
   "progress",
   "manga_progress",
+  "novel_progress",
+  "novel_preferences",
   "reviews",
   "comments",
   "watched_episodes",
@@ -90,7 +92,7 @@ function exportAccount(db, a) {
 }
 function registerAccountData(
   app,
-  { db, requireAuth, accounts, publicOrigin = () => "" },
+  { db, requireAuth, accounts, services, getLibrary, publicOrigin = () => "" },
 ) {
   app.use("/api/account-data", (req, res, next) => {
     res.set("Cache-Control", "no-store");
@@ -123,6 +125,58 @@ function registerAccountData(
     return a;
   }
   const exports = new Map();
+  require("./account-restore").registerAccountRestore(app, {
+    db,
+    requireAuth,
+    accounts,
+    getLibrary,
+  });
+  app.post(
+    "/api/account-data/email",
+    safe(async (req, res) => {
+      const a = await proof(req, res);
+      if (!a) return;
+      const address = db
+        .prepare("SELECT email FROM account_email WHERE account_id=?")
+        .get(a.id)?.email;
+      if (!address || !services?.status().email)
+        return res
+          .status(503)
+          .json({
+            error: "Verify your email and configure email delivery first",
+          });
+      if (Date.now() - (exports.get(a.id) || 0) < 60000)
+        return res
+          .status(429)
+          .json({ error: "Please wait a minute before exporting again" });
+      exports.set(a.id, Date.now());
+      const archive = Buffer.from(
+        zipSync(
+          {
+            "I-O-account.json": strToU8(
+              JSON.stringify(exportAccount(db, a), null, 2),
+            ),
+          },
+          { level: 6 },
+        ),
+      );
+      if (archive.length > 8 * 1024 * 1024)
+        throw Error("This export is too large for email; download it instead");
+      await services.send(
+        address,
+        "Your I/O account export",
+        "Your requested account export is attached. Keep this archive private. It excludes credentials and sessions.",
+        [
+          {
+            filename: "I-O-account.zip",
+            content: archive,
+            contentType: "application/zip",
+          },
+        ],
+      );
+      res.json({ ok: true });
+    }),
+  );
   app.post(
     "/api/account-data/export",
     safe(async (req, res) => {

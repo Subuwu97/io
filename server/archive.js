@@ -2,8 +2,8 @@
 // Good enough for CBZ (comic book zip) and EPUB (which is also a zip
 // container), since we only need to list entries and pull out individual
 // files, not full write/append support.
-const zlib = require('zlib');
-const fs = require('fs');
+const zlib = require("zlib");
+const fs = require("fs");
 
 const EOCD_SIG = 0x06054b50;
 const CEN_SIG = 0x02014b50;
@@ -17,9 +17,15 @@ function readZipEntries(buffer) {
   const searchStart = Math.max(0, buffer.length - maxCommentSize);
   let eocdOffset = -1;
   for (let i = buffer.length - 22; i >= searchStart; i--) {
-    if (buffer.readUInt32LE(i) === EOCD_SIG) { eocdOffset = i; break; }
+    if (buffer.readUInt32LE(i) === EOCD_SIG) {
+      eocdOffset = i;
+      break;
+    }
   }
-  if (eocdOffset === -1) throw new Error('Not a valid zip file (no end-of-central-directory record found)');
+  if (eocdOffset === -1)
+    throw new Error(
+      "Not a valid zip file (no end-of-central-directory record found)",
+    );
 
   const entryCount = buffer.readUInt16LE(eocdOffset + 10);
   const cdOffset = buffer.readUInt32LE(eocdOffset + 16);
@@ -27,7 +33,8 @@ function readZipEntries(buffer) {
   const entries = [];
   let offset = cdOffset;
   for (let i = 0; i < entryCount; i++) {
-    if (offset + 46 > buffer.length || buffer.readUInt32LE(offset) !== CEN_SIG) break;
+    if (offset + 46 > buffer.length || buffer.readUInt32LE(offset) !== CEN_SIG)
+      break;
     const compressionMethod = buffer.readUInt16LE(offset + 10);
     const compressedSize = buffer.readUInt32LE(offset + 20);
     const uncompressedSize = buffer.readUInt32LE(offset + 24);
@@ -35,8 +42,14 @@ function readZipEntries(buffer) {
     const extraLen = buffer.readUInt16LE(offset + 30);
     const commentLen = buffer.readUInt16LE(offset + 32);
     const localHeaderOffset = buffer.readUInt32LE(offset + 42);
-    const name = buffer.toString('utf8', offset + 46, offset + 46 + nameLen);
-    entries.push({ name, compressionMethod, compressedSize, uncompressedSize, localHeaderOffset });
+    const name = buffer.toString("utf8", offset + 46, offset + 46 + nameLen);
+    entries.push({
+      name,
+      compressionMethod,
+      compressedSize,
+      uncompressedSize,
+      localHeaderOffset,
+    });
     offset += 46 + nameLen + extraLen + commentLen;
   }
   return entries;
@@ -65,7 +78,13 @@ function readZipEntries(buffer) {
 function readFullySync(fd, buffer, length, position) {
   let bytesRead = 0;
   while (bytesRead < length) {
-    const n = fs.readSync(fd, buffer, bytesRead, length - bytesRead, position + bytesRead);
+    const n = fs.readSync(
+      fd,
+      buffer,
+      bytesRead,
+      length - bytesRead,
+      position + bytesRead,
+    );
     if (n === 0) break; // genuine EOF - shouldn't happen given how length/position are computed, but never loop forever
     bytesRead += n;
   }
@@ -73,7 +92,7 @@ function readFullySync(fd, buffer, length, position) {
 }
 
 function listZipEntriesEfficiently(filePath) {
-  const fd = fs.openSync(filePath, 'r');
+  const fd = fs.openSync(filePath, "r");
   try {
     const fileSize = fs.fstatSync(fd).size;
     const tailSize = Math.min(fileSize, 512 * 1024); // ~8x the max possible index distance from the end (65557 bytes) - safe margin, smaller footprint
@@ -85,7 +104,10 @@ function listZipEntriesEfficiently(filePath) {
     const searchStart = Math.max(0, tailBuf.length - maxCommentSize);
     let eocdOffset = -1;
     for (let i = tailBuf.length - 22; i >= searchStart; i--) {
-      if (tailBuf.readUInt32LE(i) === EOCD_SIG) { eocdOffset = i; break; }
+      if (tailBuf.readUInt32LE(i) === EOCD_SIG) {
+        eocdOffset = i;
+        break;
+      }
     }
     if (eocdOffset === -1) {
       // Our tail window (2MB) is already about 30x larger than the
@@ -98,7 +120,9 @@ function listZipEntriesEfficiently(filePath) {
       // fallback would just be wasted I/O reading the whole thing before
       // still failing - for exactly the files where that cost is worst
       // (large, and already broken).
-      throw new Error('Not a valid zip file (no end-of-central-directory record found)');
+      throw new Error(
+        "Not a valid zip file (no end-of-central-directory record found)",
+      );
     }
 
     const cdOffset = tailBuf.readUInt32LE(eocdOffset + 16); // absolute, relative to the whole file
@@ -106,7 +130,11 @@ function listZipEntriesEfficiently(filePath) {
     if (localCdOffset >= 0) {
       // The central directory is fully within what we already read -
       // the common case for essentially any realistic manga chapter.
-      return readZipEntriesFromOffset(tailBuf, localCdOffset, tailBuf.readUInt16LE(eocdOffset + 10));
+      return readZipEntriesFromOffset(
+        tailBuf,
+        localCdOffset,
+        tailBuf.readUInt16LE(eocdOffset + 10),
+      );
     }
     // The EOCD itself was found (so this genuinely is a valid zip), but
     // its central directory starts before our tail window - possible
@@ -129,7 +157,8 @@ function readZipEntriesFromOffset(buffer, cdOffsetInBuffer, entryCount) {
   const entries = [];
   let offset = cdOffsetInBuffer;
   for (let i = 0; i < entryCount; i++) {
-    if (offset + 46 > buffer.length || buffer.readUInt32LE(offset) !== CEN_SIG) break;
+    if (offset + 46 > buffer.length || buffer.readUInt32LE(offset) !== CEN_SIG)
+      break;
     const compressionMethod = buffer.readUInt16LE(offset + 10);
     const compressedSize = buffer.readUInt32LE(offset + 20);
     const uncompressedSize = buffer.readUInt32LE(offset + 24);
@@ -137,8 +166,14 @@ function readZipEntriesFromOffset(buffer, cdOffsetInBuffer, entryCount) {
     const extraLen = buffer.readUInt16LE(offset + 30);
     const commentLen = buffer.readUInt16LE(offset + 32);
     const localHeaderOffset = buffer.readUInt32LE(offset + 42);
-    const name = buffer.toString('utf8', offset + 46, offset + 46 + nameLen);
-    entries.push({ name, compressionMethod, compressedSize, uncompressedSize, localHeaderOffset });
+    const name = buffer.toString("utf8", offset + 46, offset + 46 + nameLen);
+    entries.push({
+      name,
+      compressionMethod,
+      compressedSize,
+      uncompressedSize,
+      localHeaderOffset,
+    });
     offset += 46 + nameLen + extraLen + commentLen;
   }
   return entries;
@@ -146,16 +181,28 @@ function readZipEntriesFromOffset(buffer, cdOffsetInBuffer, entryCount) {
 
 // Extracts and decompresses a single entry's bytes (STORED or DEFLATE only,
 // which covers essentially every CBZ/EPUB in the wild).
-function extractEntry(buffer, entry) {
+function extractEntry(buffer, entry, maxOutputLength = 64 * 1024 * 1024) {
+  if (
+    entry.uncompressedSize > maxOutputLength ||
+    entry.compressedSize > maxOutputLength
+  )
+    throw new Error("Archive entry exceeds the supported size");
   const offset = entry.localHeaderOffset;
-  if (buffer.readUInt32LE(offset) !== LOC_SIG) throw new Error('Invalid local file header for ' + entry.name);
+  if (buffer.readUInt32LE(offset) !== LOC_SIG)
+    throw new Error("Invalid local file header for " + entry.name);
   const nameLen = buffer.readUInt16LE(offset + 26);
   const extraLen = buffer.readUInt16LE(offset + 28);
   const dataStart = offset + 30 + nameLen + extraLen;
-  const compressed = buffer.subarray(dataStart, dataStart + entry.compressedSize);
+  const compressed = buffer.subarray(
+    dataStart,
+    dataStart + entry.compressedSize,
+  );
   if (entry.compressionMethod === 0) return Buffer.from(compressed);
-  if (entry.compressionMethod === 8) return zlib.inflateRawSync(compressed);
-  throw new Error(`Unsupported zip compression method ${entry.compressionMethod} for ${entry.name}`);
+  if (entry.compressionMethod === 8)
+    return zlib.inflateRawSync(compressed, { maxOutputLength });
+  throw new Error(
+    `Unsupported zip compression method ${entry.compressionMethod} for ${entry.name}`,
+  );
 }
 
 function extractEntryByName(buffer, entries, name) {
@@ -164,4 +211,9 @@ function extractEntryByName(buffer, entries, name) {
   return extractEntry(buffer, entry);
 }
 
-module.exports = { readZipEntries, extractEntry, extractEntryByName, listZipEntriesEfficiently };
+module.exports = {
+  readZipEntries,
+  extractEntry,
+  extractEntryByName,
+  listZipEntriesEfficiently,
+};

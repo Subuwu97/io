@@ -7,6 +7,19 @@ function registerTVDevices(
   db.exec(
     `CREATE TABLE IF NOT EXISTS tv_devices(id TEXT PRIMARY KEY,account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,name TEXT NOT NULL,token_hash TEXT NOT NULL,created_at INTEGER NOT NULL,last_seen INTEGER NOT NULL,state TEXT NOT NULL DEFAULT '{}');CREATE TABLE IF NOT EXISTS tv_commands(id INTEGER PRIMARY KEY AUTOINCREMENT,device_id TEXT NOT NULL REFERENCES tv_devices(id) ON DELETE CASCADE,command TEXT NOT NULL,value REAL,created_at INTEGER NOT NULL);`,
   );
+  const columns = new Set(
+    db
+      .prepare("PRAGMA table_info(tv_devices)")
+      .all()
+      .map((c) => c.name),
+  );
+  if (!columns.has("expires_at"))
+    db.exec(
+      "ALTER TABLE tv_devices ADD COLUMN expires_at INTEGER NOT NULL DEFAULT 0",
+    );
+  db.prepare("UPDATE tv_devices SET expires_at=? WHERE expires_at=0").run(
+    now() + 90 * 86400000,
+  );
   app.use("/api/tv-devices", (req, res, next) => {
     res.set("Cache-Control", "no-store");
     if (
@@ -26,6 +39,12 @@ function registerTVDevices(
       .prepare("SELECT * FROM tv_devices WHERE id=? AND account_id=?")
       .get(req.params.id, a.id);
     if (!d) res.status(404).json({ error: "TV device not found" });
+    else if (d.expires_at <= now()) {
+      res
+        .status(410)
+        .json({ error: "TV registration expired; register this device again" });
+      return null;
+    }
     return d;
   }
   app.get("/api/tv-devices", (req, res) => {
@@ -34,13 +53,13 @@ function registerTVDevices(
       res.json(
         db
           .prepare(
-            "SELECT id,name,created_at AS createdAt,last_seen AS lastSeen,state FROM tv_devices WHERE account_id=? ORDER BY last_seen DESC",
+            "SELECT id,name,created_at AS createdAt,last_seen AS lastSeen,expires_at AS expiresAt,state FROM tv_devices WHERE account_id=? ORDER BY last_seen DESC",
           )
           .all(a.id)
           .map((d) => ({
             ...d,
             state: JSON.parse(d.state),
-            online: now() - d.lastSeen < 15000,
+            online: now() - d.lastSeen < 15000 && d.expiresAt > now(),
           })),
       );
   });
@@ -62,18 +81,26 @@ function registerTVDevices(
         .json({ error: "Remove an old device before registering another" });
     const id = randomUUID(),
       token = randomBytes(32).toString("hex");
-    db.prepare("INSERT INTO tv_devices VALUES(?,?,?,?,?,?, '{}')").run(
+    db.prepare(
+      "INSERT INTO tv_devices(id,account_id,name,token_hash,created_at,last_seen,state,expires_at) VALUES(?,?,?,?,?,?, '{}',?)",
+    ).run(
       id,
       a.id,
       name.trim(),
       digest(token),
       now(),
       now(),
+      now() + 90 * 86400000,
     );
     res.status(201).json({ id, token });
   });
   app.delete("/api/tv-devices/:id", (req, res) => {
-    const d = owned(req, res);
+    const a = requireAuth(req, res);
+    if (!a) return;
+    const d = db
+      .prepare("SELECT id FROM tv_devices WHERE id=? AND account_id=?")
+      .get(req.params.id, a.id);
+    if (!d) return res.sendStatus(404);
     if (d) {
       db.prepare("DELETE FROM tv_devices WHERE id=?").run(d.id);
       res.json({ ok: true });
@@ -105,7 +132,9 @@ function registerTVDevices(
       b.volume > 1
     )
       return res.status(400).json({ error: "Invalid playback state" });
-    db.prepare("UPDATE tv_devices SET last_seen=?,state=? WHERE id=?").run(
+    db.prepare(
+      "UPDATE tv_devices SET last_seen=?,state=?,expires_at=? WHERE id=?",
+    ).run(
       now(),
       JSON.stringify({
         title: b.title,
@@ -114,6 +143,7 @@ function registerTVDevices(
         duration: b.duration,
         volume: b.volume,
       }),
+      now() + 90 * 86400000,
       d.id,
     );
     db.prepare("DELETE FROM tv_commands WHERE created_at<?").run(now() - 15000);

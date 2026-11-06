@@ -17,6 +17,10 @@ function registerDiscoveryPlus(
       return res.status(403).json({ error: "Request origin is not allowed" });
     next();
   });
+  const releases = require("./upcoming-sync").registerUpcomingSync(app, {
+    db,
+    requireAuth,
+  });
   const admin = (req, res) => {
     const a = requireAuth(req, res);
     if (a && a.role !== "admin") {
@@ -39,18 +43,18 @@ function registerDiscoveryPlus(
         .filter((r) => items.some((s) => s.id === r.item_id))
         .slice(0, 10)
         .map((r, i) => ({ id: r.item_id, rank: i + 1 }));
-    res
-      .set("Cache-Control", "no-store")
-      .json({
-        series: rank(library.cache.anime),
-        movies: rank(library.cache.movies),
-        upcoming: db
-          .prepare(
-            "SELECT * FROM upcoming_titles WHERE release_at>=? ORDER BY release_at,id LIMIT 200",
-          )
-          .all(new Date(Date.now() - 86400000).toISOString()),
-        rankingPeriod: "30 days",
-      });
+    res.set("Cache-Control", "no-store").json({
+      series: rank(library.cache.anime),
+      movies: rank(library.cache.movies),
+      upcoming: db
+        .prepare(
+          "SELECT * FROM upcoming_titles WHERE release_at>=? ORDER BY release_at,id LIMIT 200",
+        )
+        .all(new Date(Date.now() - 86400000).toISOString())
+        .concat(releases.items())
+        .sort((a, b) => a.release_at.localeCompare(b.release_at)),
+      rankingPeriod: "30 days",
+    });
   });
   app.post("/api/discovery-plus/upcoming", (req, res) => {
     if (!admin(req, res)) return;

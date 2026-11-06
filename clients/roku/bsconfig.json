@@ -1,0 +1,1 @@
+{"rootDir":".","files":["manifest","source/**/*","components/**/*"],"outFile":"../../../../outputs/I-O-Roku-preview.zip","createPackage":true,"copyToStaging":true,"stagingDir":"../../../roku-staging"}

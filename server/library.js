@@ -458,6 +458,8 @@ class Library {
               chapterTypes[chapName] = { type: 'cbz', fullPath };
             } else if (ext === '.epub') {
               const buf = fs.readFileSync(fullPath);
+              const textSpine=epub.resolveTextSpine(buf,info.readerMode==='text');
+              if(textSpine.length){chapters.push({name:chapName,pageCount:textSpine.length,format:'novel'});chapterTypes[chapName]={type:'novel',fullPath};continue;}
               let pages = [];
               try { pages = epub.resolvePageOrder(buf, this.config.imageExtensions); } catch (e) { pages = []; }
               if (pages.length === 0) {

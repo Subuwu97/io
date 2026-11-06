@@ -1,0 +1,22 @@
+name: IOTV
+options:
+  bundleIdPrefix: app.io
+targets:
+  IOTV:
+    type: application
+    platform: tvOS
+    deploymentTarget: '17.0'
+    sources: [Sources]
+    info:
+      path: Info.plist
+      properties:
+        CFBundleDisplayName: I/O TV
+        NSLocalNetworkUsageDescription: Connect to your own I/O media server.
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.io.tv
+        SWIFT_VERSION: '5.0'
+        TARGETED_DEVICE_FAMILY: '3'
+        GENERATE_INFOPLIST_FILE: NO

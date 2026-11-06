@@ -14,7 +14,9 @@ async function ioPageNewPopular(root) {
             (!Store.isKidsActive() || !Store.isMatureRating(r.item.rating)),
         ),
     upcoming = data.upcoming.filter(
-      (s) => !Store.isKidsActive() || !Store.isMatureRating(s.rating),
+      (s) =>
+        !Store.isKidsActive() ||
+        (!Store.isMatureRating(s.rating) && s.rating !== "Unrated"),
     );
   const recent = [...all].sort(
       (a, b) => new Date(b.dateAdded) - new Date(a.dateAdded),
@@ -33,7 +35,7 @@ async function ioPageNewPopular(root) {
       }</div></section>`;
   root.innerHTML =
     renderNavbar("new") +
-    `<main class="io-popular-page"><header class="io-popular-hero"><span>YOUR NEXT STORY</span><h1>New & Popular</h1><p>Fresh arrivals, local favorites and what’s coming next.</p><div class="io-dialog-actions"><a class="btn btn-primary" href="#ioNewToday">New today</a><a class="btn btn-secondary" href="#/calendar">Release calendar</a>${Store.account.role === "admin" ? '<a href="#/upcoming-manage">Manage coming soon</a>' : ""}</div></header><div id="ioNewToday">${row("New today", today)}</div>${rankRow("Top 10 shows", data.series, Store.anime)}${rankRow("Top 10 movies", data.movies, Store.movies)}${row("Recently added", recent.slice(0, 20))}<section class="io-popular-section"><h2>Coming soon</h2><p>Dates are maintained by your I/O administrator and may change.</p><div class="io-people-grid">${upcoming.map((s) => `<article class="io-person-card"><span>${escapeHtml(s.kind)} · ${escapeHtml(new Date(s.release_at).toLocaleDateString())}</span><h3>${escapeHtml(s.title)}</h3><p>${escapeHtml(s.description)}</p><small>Not available to play yet</small></article>`).join("") || "<p>No upcoming titles have been scheduled.</p>"}</div></section></main>`;
+    `<main class="io-popular-page"><header class="io-popular-hero"><span>YOUR NEXT STORY</span><h1>New & Popular</h1><p>Fresh arrivals, local favorites and what’s coming next.</p><div class="io-dialog-actions"><a class="btn btn-primary" href="#ioNewToday">New today</a><a class="btn btn-secondary" href="#/calendar">Release calendar</a><a class="btn btn-secondary" href="#/discover">Advanced library search</a>${Store.account.role === "admin" ? '<a href="#/upcoming-manage">Manage coming soon</a>' : ""}</div></header><div id="ioNewToday">${row("New today", today)}</div>${rankRow("Top 10 shows", data.series, Store.anime)}${rankRow("Top 10 movies", data.movies, Store.movies)}${row("Recently added", recent.slice(0, 20))}<section class="io-popular-section"><h2>Coming soon</h2><p>Dates come from your administrator or the optional AniList airing schedule and may change.</p><div class="io-people-grid">${upcoming.map((s) => `<article class="io-person-card"><span>${escapeHtml(s.kind)} · ${escapeHtml(new Date(s.release_at).toLocaleDateString())}</span><h3>${escapeHtml(s.title)}</h3><p>${escapeHtml(s.description)}</p><small>Not available to play yet</small></article>`).join("") || "<p>No upcoming titles have been scheduled.</p>"}</div></section></main>`;
   wireNavbar();
   wireCardNav(root);
   root.querySelector('a[href="#ioNewToday"]').onclick = (e) => {
@@ -45,7 +47,13 @@ async function ioPageUpcoming(root) {
   const data = await API._fetch("/api/discovery-plus");
   root.innerHTML = ioSettingsShell(
     "Coming soon schedule",
-    `<section class="io-settings-card"><p>Scheduling a title is an announcement, not an upload or download. Add media to your library separately when it is available.</p><form id="ioUpcomingForm"><label>Title<input name="title" required maxlength="200"></label><label>Description<textarea name="description" maxlength="2000"></textarea></label><label>Format<select name="kind"><option value="series">Series</option><option value="movie">Movie</option><option value="manga">Manga</option></select></label><label>Rating<input name="rating" maxlength="30" placeholder="PG-13"></label><label>Expected date and time<input name="date" type="datetime-local" required></label><button class="btn btn-primary">Schedule title</button></form><p role="status" id="ioUpcomingStatus"></p><div id="ioUpcomingList">${data.upcoming.map((s) => `<article class="io-inbox-item"><strong>${escapeHtml(s.title)}</strong><span>${escapeHtml(new Date(s.release_at).toLocaleString())}</span><button class="btn-ghost" data-remove-upcoming="${s.id}">Remove</button></article>`).join("")}</div></section>`,
+    `<section class="io-settings-card"><p>Scheduling a title is an announcement, not an upload or download. Add media to your library separately when it is available.</p><form id="ioUpcomingForm"><label>Title<input name="title" required maxlength="200"></label><label>Description<textarea name="description" maxlength="2000"></textarea></label><label>Format<select name="kind"><option value="series">Series</option><option value="movie">Movie</option><option value="manga">Manga</option></select></label><label>Rating<input name="rating" maxlength="30" placeholder="PG-13"></label><label>Expected date and time<input name="date" type="datetime-local" required></label><button class="btn btn-primary">Schedule title</button></form><p role="status" id="ioUpcomingStatus"></p><div id="ioUpcomingList">${data.upcoming
+      .filter((s) => !s.id.startsWith("anilist:"))
+      .map(
+        (s) =>
+          `<article class="io-inbox-item"><strong>${escapeHtml(s.title)}</strong><span>${escapeHtml(new Date(s.release_at).toLocaleString())}</span><button class="btn-ghost" data-remove-upcoming="${s.id}">Remove</button></article>`,
+      )
+      .join("")}</div></section>`,
     "upcoming",
   );
   wireNavbar();
@@ -246,5 +254,51 @@ async function ioBookDetails(root, id) {
   window.pageMangaDetail = async function (root, id) {
     await detail(root, id);
     await ioBookDetails(root, id);
+  };
+})();
+
+(function () {
+  const page = window.ioPageUpcoming;
+  window.ioPageUpcoming = async function (root) {
+    await page(root);
+    const data = await API._fetch("/api/discovery-plus/upcoming-sync"),
+      section = document.createElement("section");
+    section.className = "io-settings-card";
+    section.innerHTML =
+      '<h2>Automatic airing schedule</h2><p>Optionally refresh the next 14 days of anime airing dates from <a href="https://anilist.co" target="_blank" rel="noopener noreferrer">AniList</a> hourly. This imports release information only; it does not add playable media. Adult titles are excluded, but unrated results are hidden from children.</p><label><input id="ioReleaseAuto" type="checkbox" ' +
+      (data.enabled ? "checked" : "") +
+      '> Refresh automatically</label><button class="btn btn-primary" id="ioReleaseSave">Save schedule preference</button><button class="btn btn-secondary" id="ioReleaseRefresh">Refresh schedule now</button><p role="status" id="ioReleaseStatus"></p>';
+    root.querySelector(".io-settings-content").append(section);
+    const status = section.querySelector("#ioReleaseStatus");
+    status.textContent =
+      data.error ||
+      (data.lastAt
+        ? "Last refreshed " + new Date(data.lastAt).toLocaleString()
+        : "Not refreshed yet");
+    section.querySelector("#ioReleaseSave").onclick = async () => {
+      try {
+        await ioJSON("/api/discovery-plus/upcoming-sync", "PUT", {
+          enabled: section.querySelector("input").checked,
+        });
+        status.textContent = "Schedule preference saved";
+      } catch (e) {
+        status.textContent = e.message;
+      }
+    };
+    section.querySelector("#ioReleaseRefresh").onclick = async (e) => {
+      e.target.disabled = true;
+      try {
+        const result = await ioJSON(
+          "/api/discovery-plus/upcoming-sync/refresh",
+          "POST",
+          {},
+        );
+        status.textContent = result.count + " upcoming titles refreshed";
+      } catch (error) {
+        status.textContent = error.message;
+      } finally {
+        e.target.disabled = false;
+      }
+    };
   };
 })();

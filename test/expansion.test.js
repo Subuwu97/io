@@ -218,6 +218,15 @@ test("TV remotes cannot control foreign devices, need the receiver secret, expir
     404,
   );
 });
+test("remembered TV registrations renew with activity, expire after inactivity and remain revocable", async (t) => {
+  const f=await fixture(t);require('../server/tv-devices').registerTVDevices(f.app,f);await f.start();
+  const d=await(await f.request('/api/tv-devices','POST',{name:'Remembered TV'})).json(),url='/api/tv-devices/'+d.id,state={title:'Show',paused:true,position:0,duration:100,volume:.5};
+  const first=f.db.prepare('SELECT expires_at FROM tv_devices').get().expires_at;
+  f.advance(86400000);assert.equal((await f.request(url+'/heartbeat','POST',{token:d.token,state})).status,200);
+  assert.equal(f.db.prepare('SELECT expires_at FROM tv_devices').get().expires_at,first+86400000);
+  f.advance(91*86400000);assert.equal((await f.request(url+'/heartbeat','POST',{token:d.token,state})).status,410);
+  assert.equal((await f.request(url,'DELETE')).status,200);
+});
 test("activity is opt-in, excludes kids and mature media, expires and revoked keys cannot read it", async (t) => {
   const f = await fixture(t);
   require("../server/watch-activity").registerWatchActivity(f.app, f);

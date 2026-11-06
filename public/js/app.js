@@ -85,6 +85,12 @@ async function renderApp() {
       await ioPageExperience(appRoot,parts[0] === 'onboarding');
     } else if (parts[0] === 'passkeys') {
       await ioPagePasskeys(appRoot);
+    } else if (parts[0] === 'tv-pair' && parts[1]) {
+      await ioPageTVPair(appRoot,parts[1]);
+    } else if (parts[0] === 'discover') {
+      await ioPageAdvancedSearch(appRoot);
+    } else if (parts[0] === 'connections') {
+      await ioPageConnections(appRoot);
     } else if (parts[0] === 'people') {
       await ioPagePeople(appRoot, parts[1]);
     } else if (parts[0] === 'public-profile') {
