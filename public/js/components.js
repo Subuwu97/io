@@ -505,6 +505,8 @@ function openProfileModal(profile, onSaved) {
       </div>
       <div class="field">
         <label>Avatar</label>
+        <input type="search" id="avatarSearch" aria-label="Search profile pictures" placeholder="Search profile pictures…"/>
+        <p id="avatarCount" class="avatar-count" role="status"></p>
         <div class="avatar-grid" id="avatarGrid"></div>
         <button class="upload-link-btn" id="uploadAvatarBtn">&#128247; Upload your own photo</button>
         <input type="file" id="avatarFileInput" accept="image/*" style="display:none"/>
@@ -545,25 +547,32 @@ function openProfileModal(profile, onSaved) {
   let stagedBannerDataUrl = null;
 
   const avatarGrid = overlay.querySelector('#avatarGrid');
-  let customAvatarOptions = [];
+  let customAvatarOptions = [...AVAILABLE_AVATARS];
+  const avatarSearch=overlay.querySelector('#avatarSearch'),avatarCount=overlay.querySelector('#avatarCount');
+  const avatarLabel=a=>a.split('/').pop().replace(/\.[^.]+$/,'').replace(/[-_]+/g,' ').replace(/\bbochhi\b/g,'bocchi');
   function paintAvatarGrid() {
     avatarGrid.innerHTML = '';
     if (stagedAvatarDataUrl) {
-      avatarGrid.appendChild(el(`<button class="selected"><img src="${stagedAvatarDataUrl}"/></button>`));
+      avatarGrid.appendChild(el(`<button type="button" class="selected" aria-label="Your uploaded picture" aria-pressed="true"><img src="${stagedAvatarDataUrl}" alt="Your uploaded picture"/></button>`));
     }
-    customAvatarOptions.forEach(a => {
-      const b = el(`<button class="${!stagedAvatarDataUrl && a === selectedAvatar ? 'selected' : ''}"><img src="${a}"/></button>`);
+    const query=avatarSearch.value.trim().toLowerCase(),filtered=customAvatarOptions.filter(a=>avatarLabel(a).toLowerCase().includes(query));
+    avatarCount.textContent=`${filtered.length} of ${customAvatarOptions.length} pictures`;
+    filtered.forEach(a => {
+      const selected=!stagedAvatarDataUrl && a === selectedAvatar,label=avatarLabel(a);
+      const b = el(`<button type="button" class="${selected ? 'selected' : ''}" aria-label="Choose ${escapeHtml(label)}" aria-pressed="${selected}" title="${escapeHtml(label)}"><img src="${escapeHtml(a)}" alt="${escapeHtml(label)}" loading="lazy" decoding="async"/></button>`);
       b.addEventListener('click', () => {
         selectedAvatar = a;
         stagedAvatarDataUrl = null;
         paintAvatarGrid();
+        const chosen=Array.from(avatarGrid.querySelectorAll('button')).find(button=>button.getAttribute('aria-pressed')==='true');chosen?.focus();
       });
       avatarGrid.appendChild(b);
     });
   }
+  avatarSearch.addEventListener('input',paintAvatarGrid);
   paintAvatarGrid();
   API.getAvatarGallery().then((gallery) => {
-    customAvatarOptions = gallery.custom;
+    customAvatarOptions = [...new Set([...(gallery.builtIn||AVAILABLE_AVATARS),...(gallery.custom||[]),...(selectedAvatar?[selectedAvatar]:[])])];
     paintAvatarGrid();
   }).catch((e) => showToast(e.message));
 

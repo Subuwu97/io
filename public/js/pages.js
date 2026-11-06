@@ -332,6 +332,7 @@ async function pageGrid(root, kind) {
             <option value="title">A-Z</option>
             <option value="newest">Recently Added</option>
           </select>
+          ${kind!=='books'?`<select id="catalogAudio" aria-label="Catalog audio"><option value="">All audio</option><option value="dub">English dub available</option><option value="jpn">Japanese audio (tagged)</option><option value="eng">English audio (tagged)</option></select><select id="catalogSubtitles" aria-label="Catalog subtitles"><option value="">All subtitles</option><option value="eng">English subtitles (tagged)</option><option value="jpn">Japanese subtitles (tagged)</option><option value="spa">Spanish subtitles (tagged)</option></select>`:''}
           ${allStudios.length > 0 ? `
           <select id="studioSelect">
             <option value="">All Studios</option>
@@ -367,6 +368,9 @@ async function pageGrid(root, kind) {
       ? items.filter((s) => [...activeGenres].every((g) => (s.genres || []).includes(g)))
       : items;
     const studioSelect = document.getElementById('studioSelect');
+    const audio=document.getElementById('catalogAudio')?.value,subtitle=document.getElementById('catalogSubtitles')?.value;
+    if(audio)filtered=filtered.filter(s=>audio==='dub'?s.hasDub===true:(s.audioLanguages||[]).includes(audio));
+    if(subtitle)filtered=filtered.filter(s=>(s.subtitleLanguages||[]).includes(subtitle));
     if (studioSelect && studioSelect.value) {
       filtered = filtered.filter((s) => (s.studios || []).includes(studioSelect.value));
     }
@@ -378,6 +382,7 @@ async function pageGrid(root, kind) {
   }
 
   document.getElementById('sortSelect').addEventListener('change', applyFilters);
+  for(const id of ['catalogAudio','catalogSubtitles'])document.getElementById(id)?.addEventListener('change',applyFilters);
   const studioSelectEl = document.getElementById('studioSelect');
   if (studioSelectEl) studioSelectEl.addEventListener('change', applyFilters);
   const chipsWrap = document.getElementById('genreChips');
@@ -1005,8 +1010,8 @@ async function pagePlayer(root, showId, relPathEncoded, options = {}) {
   // audio you end up with isn't English, auto-turn-on English subtitles
   // when they're available, rather than leaving you to notice and pick
   // it yourself every time.
-  const prefAudioLang = Store.activeProfile && Store.activeProfile.preferredAudioLang;
-  const prefSubLang = Store.activeProfile && Store.activeProfile.preferredSubtitleLang;
+  const prefAudioLang = Store.activeProfile?.experience?.preferredAudio || (Store.activeProfile && Store.activeProfile.preferredAudioLang);
+  const prefSubLang = Store.activeProfile?.experience?.preferredSubtitles || (Store.activeProfile && Store.activeProfile.preferredSubtitleLang);
   const isEnglish = (lang) => !!lang && /^en/i.test(lang);
   let selectedAudio = (
     (prefAudioLang && streamInfo.audioTracks.find(a => a.language === prefAudioLang)) ||
@@ -1027,6 +1032,9 @@ async function pagePlayer(root, showId, relPathEncoded, options = {}) {
     {}
   ).index ?? null;
   let selectedQuality = transcodeMode ? 'auto' : 'original';
+  const preferredQuality=Store.activeProfile?.experience?.quality;
+  if(preferredQuality==='original'||preferredQuality==='auto'&&transcodeMode)selectedQuality=preferredQuality;
+  else if(streamInfo.ffmpegAvailable&&['1080','720','480','360','240'].includes(preferredQuality)&&Number(preferredQuality)<streamInfo.videoHeight)selectedQuality=preferredQuality;
   let streamOffset = 0; // seconds already skipped server-side for the current source (transcode mode only)
   let hlsStreamOffset = 0; // same concept as streamOffset above, but for a seek-triggered HLS session restart - video.currentTime is relative to that fresh session's own start, not the actual position in the full file
   let lastSeekAt = null; // timestamp of the last explicit seek - used to distinguish a genuine far-seek network error from an ordinary buffering hiccup during otherwise-uninterrupted playback
@@ -1062,6 +1070,8 @@ async function pagePlayer(root, showId, relPathEncoded, options = {}) {
     return video.currentTime;
   }
   function totalDuration() { return streamInfo.duration || video.duration || 0; }
+  const remoteCommand=e=>{const {command,value}=e.detail||{};if(command==='seek')seekTo(value);else if(command==='back')seekTo(Math.max(0,absoluteTime()-10));else if(command==='forward')seekTo(Math.min(totalDuration(),absoluteTime()+10));};
+  video.addEventListener('io-remote-command',remoteCommand);
 
   // iPadOS deliberately identifies as desktop Mac Safari in its default
   // User-Agent string (since iPadOS 13) - the server has no way to tell
@@ -1558,7 +1568,10 @@ async function pagePlayer(root, showId, relPathEncoded, options = {}) {
     // what actually gives multiple simultaneous lines proper breathing
     // room and a distinct rounded box per line, closer to how
     // Crunchyroll spaces overlapping dialogue.
-    subStyleTag.textContent = `.custom-sub-line { font-size: ${fontSize}; color: ${color || '#ffffff'}; ${bgRule} }`;
+    const prefs=Store.activeProfile?.experience;
+    const subHex=/^#[a-f0-9]{6}$/i.test(color)?color:'#ffffff',subRGB=[1,3,5].map(i=>parseInt(subHex.slice(i,i+2),16)).join(' ');
+    const advanced=prefs?`font-family:${prefs.subtitleFont};font-size:calc(${fontSize} * ${prefs.subtitleScale/100});color:rgb(${subRGB} / ${prefs.subtitleOpacity}%);opacity:1;background:rgba(0,0,0,${prefs.subtitleBackgroundOpacity/100});text-shadow:${prefs.subtitleEffect==='outline'?'1px 1px 2px #000,-1px -1px 2px #000,1px -1px 2px #000,-1px 1px 2px #000':prefs.subtitleEffect==='shadow'?'2px 2px 4px #000':'none'};`:'';
+    subStyleTag.textContent = `.custom-sub-line { font-size: ${fontSize}; color: ${color || '#ffffff'}; ${bgRule} ${advanced} }`;
   }
   window.addEventListener('hashchange', () => subStyleTag.remove(), { once: true });
 
@@ -1697,6 +1710,7 @@ async function pagePlayer(root, showId, relPathEncoded, options = {}) {
   video.addEventListener('timeupdate', () => {
     if (seekDragging || reloading || !usesHls) return;
     const abs = absoluteTime();
+    video.dataset.ioAbsoluteTime=String(abs);video.dataset.ioDuration=String(totalDuration());
     const recentRealSeek = lastSeekAt !== null && (Date.now() - lastSeekAt) < 3000;
     if (recentRealSeek) {
       // A real seek just happened - this drop is expected, not a
@@ -2290,8 +2304,8 @@ async function pagePlayer(root, showId, relPathEncoded, options = {}) {
   const skipOutroBtn = document.getElementById('skipOutroBtn');
   function updateSkipButtons(t) {
     const { skipIntro, skipOutro } = skipWindows;
-    skipIntroBtn.style.display = (skipIntro && t >= skipIntro.start && t < skipIntro.end) ? 'block' : 'none';
-    skipOutroBtn.style.display = (skipOutro && skipOutro.end != null && t >= skipOutro.start && t < skipOutro.end && !upNextShown) ? 'block' : 'none';
+    skipIntroBtn.style.display = (Store.activeProfile?.experience?.showIntro!==false && skipIntro && t >= skipIntro.start && t < skipIntro.end) ? 'block' : 'none';
+    skipOutroBtn.style.display = (Store.activeProfile?.experience?.showOutro!==false && skipOutro && skipOutro.end != null && t >= skipOutro.start && t < skipOutro.end && !upNextShown) ? 'block' : 'none';
   }
   skipIntroBtn.addEventListener('click', () => seekTo(skipWindows.skipIntro.end));
   skipOutroBtn.addEventListener('click', () => {
