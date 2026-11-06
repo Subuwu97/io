@@ -1,3 +1,5 @@
+const stateLock=require('./state-lock').acquireStateLock(require('./paths').DATA_DIR,'server');
+process.once('exit',()=>stateLock.release());
 const express = require('express');
 const fs = require('fs');
 const mediaIO = require('./media-io');
@@ -67,7 +69,7 @@ const BUILTIN_AVATARS_DIR = path.join(BASE_DIR, 'public', 'img', 'avatars');
 // way. Used both for the startup banner and the JS/CSS cache-busting
 // query param below, so they can never drift out of sync with each
 // other.
-const BUILD_VERSION = 'io-0.5.0-community-integrations-2026-11-05';
+const BUILD_VERSION = 'io-0.6.0-recovery-discovery-tv-previews-2026-11-06';
 const CONFIG_PATH = path.join(DATA_DIR, 'config.json');
 const SESSION_COOKIE = 'io_session';
 const SESSION_MAX_AGE_SEC = 30 * 24 * 60 * 60; // 30 days
@@ -435,8 +437,9 @@ function clearSessionCookie(res) {
 // Every account can browse/watch/read; only 'admin' accounts can manage
 // the media library and site settings. Call requireAuth first in a
 // handler, bail out if it returns null (it already sent the response).
+let nativeTV;
 function requireAuth(req, res) {
-  const account = getAccountFromRequest(req);
+  const account = getAccountFromRequest(req) || nativeTV?.mediaAccount(req);
   if (!account) {
     res.status(401).json({ error: 'Not signed in' });
     return null;
@@ -460,9 +463,11 @@ require('./library-actions').registerLibraryActions(app, { db, requireAuth, getL
 require('./public-profiles').registerPublicProfiles(app, { db, requireAuth, getLibrary: () => library, publicOrigin: () => services.get().publicUrl });
 require('./passkeys').registerPasskeys(app, { db, requireAuth, accounts: accountsStore, services, setSessionCookie });
 require('./experience').registerExperience(app, { db, requireAuth, publicOrigin: () => services.get().publicUrl });
-require('./account-data').registerAccountData(app, { db, requireAuth, accounts: accountsStore, publicOrigin: () => services.get().publicUrl });
+require('./account-data').registerAccountData(app, { db, requireAuth, accounts: accountsStore, services, getLibrary:()=>library, publicOrigin: () => services.get().publicUrl });
 require('./tv-devices').registerTVDevices(app, { db, requireAuth, publicOrigin: () => services.get().publicUrl });
+require('./novels').registerNovels(app, { db, requireAuth, getLibrary:()=>library,publicOrigin: () => services.get().publicUrl });
 require('./discovery-plus').registerDiscoveryPlus(app, { db, requireAuth, getLibrary: () => library, publicOrigin: () => services.get().publicUrl });
+nativeTV=require('./tv-native').registerNativeTV(app,{db,requireAuth,profiles:profilesStore,getLibrary:()=>library,startHls:resolveAndStartHlsSession,publicOrigin:()=>services.get().publicUrl});
 const integrationSecrets = require('./private-settings').createPrivateSettings(DATA_DIR);
 require('./trackers').registerTrackers(app, { db, requireAuth, accounts: accountsStore, services, secrets: integrationSecrets, getLibrary: () => library });
 const notificationDelivery = require('./notification-delivery').registerNotificationDelivery(app, { db, requireAuth, services, secrets: integrationSecrets, notifications, getLibrary: () => library });
