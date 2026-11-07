@@ -16,6 +16,10 @@ const { mode, config, baseDir } = workerData;
 
 try {
   const lib = new Library(config, baseDir);
+  if(mode==='manga'){
+    lib._previousChapterIndex=workerData.previousChapterIndex||{};
+    lib._onScanProgress=checkpoint=>parentPort.postMessage({progress:true,...checkpoint});
+  }
   let result;
   if (mode === 'anime') result = lib._scanVideoRoot(lib.animeRoot, 'anime', 'series', false);
   else if (mode === 'movies') result = lib._scanVideoRoot(lib.movieRoot, 'movies', 'movie', true);

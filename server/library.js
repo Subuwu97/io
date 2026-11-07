@@ -176,11 +176,14 @@ class Library {
   _scanRootInWorker(mode, timeoutMs, label, previous) {
     const root = mode === 'anime' ? this.animeRoot : mode === 'movies' ? this.movieRoot : this.mangaRoot;
     const key = JSON.stringify([mode, root]);
-    const failed = (state, message) => ({ ok: false, items: previous, state, message });
+    const partial = new Map(previous.map(item => [item.id,item]));
+    let checkpoints = 0;
+    const partialIndex = {...this._chapterIndex};
+    const failed = (state, message) => ({ ok: false, items: checkpoints ? [...partial.values()] : previous, state, message, ...(checkpoints ? {chapterIndex:partialIndex} : {}) });
     if (activeScans.has(key)) return Promise.resolve(failed('busy', 'Previous filesystem operation is still returning; keeping the saved catalog.'));
     return new Promise(resolve => {
       let worker;
-      try { worker = this._createWorker({ mode, config: this.config, baseDir: this.baseDir }); }
+      try { worker = this._createWorker({ mode, config: this.config, baseDir: this.baseDir, previousChapterIndex:mode==='manga'?this._chapterIndex:undefined }); }
       catch (error) { resolve(failed('error', error.message)); return; }
       activeScans.set(key, worker);
       let settled = false;
@@ -192,12 +195,25 @@ class Library {
       // Termination cannot interrupt every blocked OS filesystem call. Do not
       // wait for it, or spawn another worker for this root until it has exited.
       const stop = () => { worker.unref(); worker.terminate().catch(() => {}); };
-      timer = setTimeout(() => {
-        const message = `${label} timed out after ${timeoutMs / 1000}s. Keeping ${previous.length} saved title(s). Check share availability and the server account's permissions.`;
+      const deadline = () => setTimeout(() => {
+        const message = `${label} made no progress for ${timeoutMs / 1000}s. Keeping ${checkpoints ? partial.size : previous.length} saved title(s). Check share availability and the server account's permissions.`;
         console.error(`[scanner] ${message}`);
         finish(failed('timeout', message)); stop();
       }, timeoutMs);
-      worker.once('message', msg => {
+      timer=deadline();
+      worker.on('message', msg => {
+        if(settled)return;
+        if(mode==='manga'&&msg.progress){
+          clearTimeout(timer);timer=deadline();
+          if(msg.item?.id&&msg.chapterIndex){
+            checkpoints++;partial.set(msg.item.id,msg.item);Object.assign(partialIndex,msg.chapterIndex);
+            this.cache.manga=[...partial.values()];this._chapterIndex={...partialIndex};
+            this.cache.scannedAt=Math.max(Date.now(),(this.cache.scannedAt||0)+1);
+            this._onCatalogProgress?.();
+            if(checkpoints===1||checkpoints%10===0){console.log(`[scanner] Manga progress: ${partial.size} title(s) available`);void this.saveSnapshot();}
+          }
+          return;
+        }
         if (msg.ok) finish({ ok: true, items: msg.items, flatShowIds: msg.flatShowIds, chapterIndex: msg.chapterIndex });
         else {
           console.error(`[scanner] ${label}: ${msg.error}; keeping ${previous.length} saved title(s).`);
@@ -213,7 +229,12 @@ class Library {
     });
   }
 
-  async saveSnapshot() {
+  saveSnapshot() {
+    this._snapshotSave = (this._snapshotSave || Promise.resolve()).then(() => this._writeSnapshot());
+    return this._snapshotSave;
+  }
+
+  async _writeSnapshot() {
     if (!this.snapshotPath) return;
     const temporary = `${this.snapshotPath}.${process.pid}.tmp`;
     try {
@@ -448,6 +469,8 @@ class Library {
           const fullPath = path.join(titleDir, fileName);
           const chapName = path.parse(fileName).name;
           try {
+            const archiveStat=fs.statSync(fullPath),cached=this._previousChapterIndex?.[mangaId]?.[chapName];
+            if(cached?.scanVersion===1&&cached.fullPath===fullPath&&cached.size===archiveStat.size&&cached.mtimeMs===archiveStat.mtimeMs&&cached.chapter){chapters.push({...cached.chapter});chapterTypes[chapName]={...cached};this._onScanProgress?.({});continue;}
             if (ext === '.cbz') {
               const entries = archive.listZipEntriesEfficiently(fullPath);
               const imageEntries = entries
@@ -459,7 +482,7 @@ class Library {
             } else if (ext === '.epub') {
               const buf = fs.readFileSync(fullPath);
               const textSpine=epub.resolveTextSpine(buf,info.readerMode==='text');
-              if(textSpine.length){chapters.push({name:chapName,pageCount:textSpine.length,format:'novel'});chapterTypes[chapName]={type:'novel',fullPath};continue;}
+              if(textSpine.length){chapters.push({name:chapName,pageCount:textSpine.length,format:'novel'});chapterTypes[chapName]={type:'novel',fullPath,scanVersion:1,size:archiveStat.size,mtimeMs:archiveStat.mtimeMs,chapter:{...chapters[chapters.length-1]}};this._onScanProgress?.({});continue;}
               let pages = [];
               try { pages = epub.resolvePageOrder(buf, this.config.imageExtensions); } catch (e) { pages = []; }
               if (pages.length === 0) {
@@ -480,6 +503,8 @@ class Library {
               chapters.push({ name: chapName, pageCount, format: 'pdf', pdfSupported: pdfLib.HAS_PDFTOPPM });
               chapterTypes[chapName] = { type: 'pdf', fullPath };
             }
+            if(chapterTypes[chapName])Object.assign(chapterTypes[chapName],{scanVersion:1,size:archiveStat.size,mtimeMs:archiveStat.mtimeMs,chapter:{...chapters.find(c=>c.name===chapName)}});
+            this._onScanProgress?.({});
           } catch (e) {
             if (['ENOENT', 'EACCES', 'EPERM', 'EIO', 'ETIMEDOUT', 'ENOTCONN', 'ECONNRESET', 'ENETUNREACH', 'EHOSTUNREACH'].includes(e.code)) throw e;
             console.log(`[library] skipped unreadable chapter file "${fileName}" in "${titleName}": ${e.message}`);
@@ -511,6 +536,7 @@ class Library {
         chapterCount: chapters.length,
         dateAdded: new Date(dateAdded).toISOString(),
       });
+      this._onScanProgress?.({item:titles[titles.length-1],chapterIndex:{[mangaId]:chapterTypes}});
     }
     return titles;
   }

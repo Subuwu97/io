@@ -212,6 +212,9 @@ function scanLibrary(refreshAfterCurrent = false) {
         // for anyone who doesn't use it.
         if (changePoller && (config.autoScanIntervalMinutes || 0) > 0) void changePoller.captureBaseline();
         scanningLibrary = new Library(config, BASE_DIR, { previous: library, snapshotPath: librarySnapshotPath });
+        // Publish completed manga titles while a large NAS collection is still scanning.
+        const currentScan = scanningLibrary;
+        currentScan._onCatalogProgress = () => { library = currentScan; };
         await scanningLibrary.scan();
         library = scanningLibrary;
         // Filesystem timestamps are an unreliable proxy for "when did

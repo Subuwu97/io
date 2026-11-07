@@ -94,3 +94,27 @@ test('periodic check returns at its deadline even when its worker cannot complet
     timeoutMs: 25, workerFactory: () => new Worker('setInterval(() => {}, 1000)', { eval: true }) });
   assert.equal(result, null); assert.ok(Date.now() - start < 1000);
 });
+
+
+test('manga progress extends the scan deadline and preserves readable chapters after a later stall', async () => {
+  const { EventEmitter } = require('node:events');
+  const f = fixture('incremental');
+  const lib = new Library(f.config, f.base);
+  const worker = new EventEmitter();
+  worker.unref = () => {};
+  worker.terminate = async () => worker.emit('exit', 0);
+  lib._createWorker = () => worker;
+  const pending = lib._scanRootInWorker('manga', 100, 'Manga', []);
+  const item = { id: 'readable', title: 'Readable Manga', chapters: [{ name: 'Volume 1', pageCount: 42 }] };
+  const chapterIndex = { readable: { 'Volume 1': { type: 'pdf', fullPath: '/share/volume.pdf' } } };
+  worker.emit('message', { progress: true, item, chapterIndex });
+  assert.equal(lib.cache.manga[0].id, 'readable');
+  await delay(60);
+  worker.emit('message', { progress: true });
+  await delay(60);
+  assert.equal(lib._chapterIndex.readable['Volume 1'].type, 'pdf');
+  const result = await pending;
+  assert.equal(result.state, 'timeout');
+  assert.deepEqual(result.items, [item]);
+  assert.deepEqual(result.chapterIndex, chapterIndex);
+});
